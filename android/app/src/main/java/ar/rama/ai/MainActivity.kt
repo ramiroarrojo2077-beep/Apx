@@ -71,7 +71,7 @@ class MainActivity : Activity() {
 
     private fun cargarCerebro() {
         subtitulo.text = "despertando…"
-        trabajador.execute {
+        enSegundoPlano("cargando mi base de conocimiento") {
             val conocimiento = assets.open("conocimiento.json").bufferedReader().use { it.readText() }
             val memoria = Memoria(AlmacenArchivo(File(filesDir, "aprendido.json")))
             val motor = Rama(conocimiento, memoria)
@@ -222,12 +222,17 @@ class MainActivity : Activity() {
             padding(dp(16f), dp(10f))
             maxLines = 4
             setHorizontallyScrolling(false)
-            imeOptions = EditorInfo.IME_ACTION_SEND
+            // Sin la bandera MULTI_LINE el teclado muestra "enviar" en lugar de
+            // un salto de línea, que es lo que uno espera en un chat.
             inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or
-                android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            setOnEditorActionListener { _, accion, _ ->
-                if (accion == EditorInfo.IME_ACTION_SEND) { enviar(text.toString()); true } else false
+                android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            imeOptions = EditorInfo.IME_ACTION_SEND
+            setOnEditorActionListener { _, accion, evento ->
+                val enter = evento?.keyCode == android.view.KeyEvent.KEYCODE_ENTER
+                if (accion == EditorInfo.IME_ACTION_SEND || accion == EditorInfo.IME_ACTION_DONE || enter) {
+                    enviar(text.toString())
+                    true
+                } else false
             }
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -268,9 +273,32 @@ class MainActivity : Activity() {
         burbujaUsuario(limpio)
 
         val bloque = if (modoPensar) bloquePensar() else null
-        trabajador.execute {
+        enSegundoPlano("pensando la respuesta") {
             val respuesta = responderConContexto(motor, limpio)
             principal.post { mostrar(respuesta, bloque) }
+        }
+    }
+
+    /**
+     * Corre algo fuera del hilo principal sin que un error se lo lleve puesto.
+     *
+     * En Android una excepción en un hilo cualquiera tumba el proceso entero:
+     * la app se cerraría sin decir por qué. Acá la atajamos y la mostramos en
+     * el chat, que es donde el usuario puede verla.
+     */
+    private fun enSegundoPlano(queEstabaHaciendo: String, tarea: () -> Unit) {
+        trabajador.execute {
+            try {
+                tarea()
+            } catch (e: Throwable) {
+                principal.post {
+                    subtitulo.text = "algo falló"
+                    burbujaRama(
+                        "Me tropecé $queEstabaHaciendo:\n\n" +
+                            "${e.javaClass.simpleName}: ${e.message ?: "sin detalle"}"
+                    )
+                }
+            }
         }
     }
 
@@ -475,7 +503,7 @@ class MainActivity : Activity() {
         agregar(cargando, Gravity.END)
 
         val bloque = if (modoPensar) bloquePensar() else null
-        trabajador.execute {
+        enSegundoPlano("leyendo el archivo") {
             val adjunto = try {
                 AnalizadorAdjuntos.analizar(this, uri)
             } catch (e: Exception) {

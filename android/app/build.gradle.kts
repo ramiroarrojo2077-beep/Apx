@@ -46,6 +46,12 @@ android {
     packaging {
         resources.excludes += setOf("META-INF/*.kotlin_module")
     }
+
+    testOptions {
+        // Robolectric necesita los recursos y assets reales de la app para
+        // poder levantar la Activity de verdad dentro de la JVM.
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 tasks.named("preBuild") { dependsOn(sincronizarConocimiento) }
@@ -55,4 +61,6 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // org.json real para los tests de JVM (el android.jar de tests es un stub).
     testImplementation("org.json:json:20240303")
+    // Robolectric corre la interfaz en la JVM: sin emulador y sin teléfono.
+    testImplementation("org.robolectric:robolectric:4.13")
 }

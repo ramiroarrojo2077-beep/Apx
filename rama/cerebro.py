@@ -1,0 +1,189 @@
+"""El cerebro de Rama: skills deterministas + recuperación por similitud."""
+
+import json
+import random
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from .memoria import Memoria
+from .skills import SKILLS
+from .vectorizador import Vectorizador, similitud
+
+ARCHIVO_CONOCIMIENTO = Path(__file__).resolve().parent.parent / "data" / "conocimiento.json"
+
+# Bandas de confianza. Debajo de la baja, Rama admite que no sabe.
+UMBRAL_ALTO = 0.42
+UMBRAL_BAJO = 0.20
+UMBRAL_PISTA = 0.09
+
+SIN_IDEA = (
+    "No sé responder eso todavía.",
+    "Eso se me escapa.",
+    "No tengo nada parecido en mi base.",
+)
+
+
+@dataclass
+class Respuesta:
+    """Lo que Rama contesta, con la trazabilidad de cómo lo decidió."""
+
+    texto: str
+    intencion: str = "desconocida"
+    confianza: float = 0.0
+    fuente: str = "fallback"
+    candidatos: list[tuple[str, float]] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        return self.texto
+
+
+@dataclass
+class _Entrada:
+    """Un patrón indexado y a qué intención pertenece."""
+
+    patron: str
+    intencion: str
+    fuente: str
+    vector: dict[str, float] = field(default_factory=dict)
+
+
+class Rama:
+    """Mini IA conversacional en español.
+
+    >>> ia = Rama(memoria=Memoria(archivo="/tmp/rama-demo.json"))
+    >>> ia.responder("hola").intencion
+    'saludo'
+    """
+
+    def __init__(
+        self,
+        conocimiento: Path | str | None = None,
+        memoria: Memoria | None = None,
+        semilla: int | None = None,
+    ) -> None:
+        self.ruta_conocimiento = Path(conocimiento) if conocimiento else ARCHIVO_CONOCIMIENTO
+        self.memoria = memoria if memoria is not None else Memoria()
+        self.azar = random.Random(semilla)
+        self.intenciones: dict[str, list[str]] = {}
+        self.entradas: list[_Entrada] = []
+        self.vectorizador = Vectorizador()
+        self._ultima_respuesta: dict[str, int] = {}
+        self.reindexar()
+
+    # ------------------------------------------------------------- índice
+
+    @property
+    def total_intenciones(self) -> int:
+        return len(self.intenciones)
+
+    def reindexar(self) -> None:
+        """(Re)construye la base y reentrena el vectorizador.
+
+        Se llama al arrancar y cada vez que Rama aprende u olvida algo.
+        """
+        self.intenciones = {}
+        self.entradas = []
+
+        datos = self._leer_conocimiento()
+        for intencion in datos.get("intenciones", []):
+            ident = intencion["id"]
+            self.intenciones[ident] = list(intencion.get("respuestas", []))
+            for patron in intencion.get("patrones", []):
+                self.entradas.append(_Entrada(patron, ident, "conocimiento"))
+
+        # Lo aprendido en caliente: cada hecho es su propia intención.
+        for i, hecho in enumerate(self.memoria.aprendido):
+            ident = f"aprendido:{i}"
+            self.intenciones[ident] = [hecho["respuesta"]]
+            self.entradas.append(_Entrada(hecho["pregunta"], ident, "aprendido"))
+
+        self.vectorizador.entrenar(e.patron for e in self.entradas)
+        for entrada in self.entradas:
+            entrada.vector = self.vectorizador.vectorizar(entrada.patron)
+
+    def _leer_conocimiento(self) -> dict[str, Any]:
+        try:
+            return json.loads(self.ruta_conocimiento.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {"intenciones": []}
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"El archivo de conocimiento {self.ruta_conocimiento} no es JSON válido: {exc}"
+            ) from exc
+
+    # ---------------------------------------------------------- inferencia
+
+    def clasificar(self, texto: str) -> list[tuple[str, float, str]]:
+        """Devuelve (intención, confianza, fuente) ordenado de mejor a peor."""
+        consulta = self.vectorizador.vectorizar(texto, corregir=True)
+        if not consulta:
+            return []
+
+        mejor: dict[str, tuple[float, str]] = {}
+        for entrada in self.entradas:
+            puntaje = similitud(consulta, entrada.vector)
+            previo = mejor.get(entrada.intencion)
+            if previo is None or puntaje > previo[0]:
+                mejor[entrada.intencion] = (puntaje, entrada.fuente)
+
+        ranking = [(i, p, f) for i, (p, f) in mejor.items() if p > 0]
+        ranking.sort(key=lambda x: x[1], reverse=True)
+        return ranking
+
+    def _elegir_respuesta(self, intencion: str) -> str:
+        """Rota entre las respuestas de una intención para no sonar a loop."""
+        opciones = self.intenciones.get(intencion) or ["..."]
+        if len(opciones) == 1:
+            return opciones[0]
+        anterior = self._ultima_respuesta.get(intencion)
+        indices = [i for i in range(len(opciones)) if i != anterior]
+        elegido = self.azar.choice(indices)
+        self._ultima_respuesta[intencion] = elegido
+        return opciones[elegido]
+
+    def responder(self, texto: str) -> Respuesta:
+        """Punto de entrada único: texto del usuario -> respuesta de Rama."""
+        texto = (texto or "").strip()
+        if not texto:
+            return Respuesta("Decime algo y te contesto.", "vacio", 0.0, "guardia")
+
+        self.memoria.registrar_turno("usuario", texto)
+
+        for skill in SKILLS:
+            salida = skill(texto, self)
+            if salida:
+                self.memoria.registrar_turno("rama", salida)
+                return Respuesta(salida, skill.__name__, 1.0, "skill")
+
+        ranking = self.clasificar(texto)
+        candidatos = [(i, round(p, 4)) for i, p, _ in ranking[:3]]
+
+        if ranking and ranking[0][1] >= UMBRAL_BAJO:
+            intencion, confianza, fuente = ranking[0]
+            respuesta = self._elegir_respuesta(intencion)
+            if confianza < UMBRAL_ALTO:
+                respuesta = f"No estoy del todo segura, pero creo que va por acá: {respuesta}"
+            self.memoria.ultima_pregunta_sin_respuesta = None
+            self.memoria.registrar_turno("rama", respuesta)
+            return Respuesta(respuesta, intencion, round(confianza, 4), fuente, candidatos)
+
+        salida = self._sin_respuesta(texto, ranking)
+        self.memoria.registrar_turno("rama", salida)
+        return Respuesta(salida, "desconocida", round(ranking[0][1], 4) if ranking else 0.0,
+                         "fallback", candidatos)
+
+    def _sin_respuesta(self, texto: str, ranking: list[tuple[str, float, str]]) -> str:
+        """Admite la ignorancia y ofrece el camino para arreglarla."""
+        self.memoria.ultima_pregunta_sin_respuesta = texto
+        base = self.azar.choice(SIN_IDEA)
+        if ranking and ranking[0][1] >= UMBRAL_PISTA:
+            cercano = ranking[0][0].replace("_", " ").replace("aprendido:", "algo que me enseñaste #")
+            return (
+                f"{base} Lo más cercano que tengo es «{cercano}», pero no me convence. "
+                "Si querés, enseñame con «responde: ...» o «aprende: pregunta = respuesta»."
+            )
+        return (
+            f"{base} Podés enseñarme escribiendo «responde: la respuesta que esperabas» "
+            "y lo guardo para siempre."
+        )

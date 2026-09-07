@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rama AI</title>
+<style>
+  :root {
+    --fondo: #0f1115;
+    --panel: #171a21;
+    --borde: #262b35;
+    --texto: #e6e9ef;
+    --tenue: #8b93a4;
+    --acento: #4ade80;
+    --burbuja-vos: #1f6feb;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --fondo: #f6f7f9; --panel: #ffffff; --borde: #e2e5ea;
+      --texto: #14171c; --tenue: #6b7280; --acento: #15803d; --burbuja-vos: #1f6feb;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; background: var(--fondo); color: var(--texto);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header { width: 100%; max-width: 760px; padding: 24px 16px 12px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: -0.3px; }
+  h1 span { color: var(--acento); }
+  .sub { color: var(--tenue); font-size: 13px; margin-top: 4px; }
+  main {
+    width: 100%; max-width: 760px; flex: 1; display: flex; flex-direction: column;
+    padding: 0 16px 16px;
+  }
+  #chat {
+    flex: 1; min-height: 320px; overflow-y: auto; padding: 16px;
+    background: var(--panel); border: 1px solid var(--borde); border-radius: 12px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .msg { max-width: 82%; padding: 10px 13px; border-radius: 12px; white-space: pre-wrap; word-wrap: break-word; }
+  .vos { align-self: flex-end; background: var(--burbuja-vos); color: #fff; border-bottom-right-radius: 3px; }
+  .rama { align-self: flex-start; background: transparent; border: 1px solid var(--borde); border-bottom-left-radius: 3px; }
+  .meta { font-size: 11px; color: var(--tenue); margin-top: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  form { display: flex; gap: 8px; margin-top: 12px; }
+  input[type=text] {
+    flex: 1; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--borde);
+    background: var(--panel); color: var(--texto); font-size: 15px;
+  }
+  input[type=text]:focus { outline: 2px solid var(--acento); outline-offset: -1px; }
+  button {
+    padding: 12px 18px; border-radius: 10px; border: 0; cursor: pointer;
+    background: var(--acento); color: #08130c; font-weight: 600; font-size: 15px;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .barra { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .chip {
+    font-size: 12px; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--borde); background: transparent; color: var(--tenue); font-weight: 400;
+  }
+  .chip:hover { color: var(--texto); border-color: var(--acento); }
+  footer { color: var(--tenue); font-size: 12px; padding: 8px 16px 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Rama <span>AI</span></h1>
+  <div class="sub" id="estado">mini inteligencia artificial en Python puro · sin dependencias</div>
+</header>
+<main>
+  <div id="chat" role="log" aria-live="polite"></div>
+  <form id="form" autocomplete="off">
+    <input type="text" id="entrada" placeholder="Escribí algo…" aria-label="Mensaje" autofocus>
+    <button type="submit" id="enviar">Enviar</button>
+  </form>
+  <div class="barra" id="sugerencias"></div>
+</main>
+<footer>Todo corre local: sin nube, sin API keys.</footer>
+
+<script>
+const chat = document.getElementById('chat');
+const form = document.getElementById('form');
+const entrada = document.getElementById('entrada');
+const enviar = document.getElementById('enviar');
+
+function burbuja(texto, quien, meta) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + quien;
+  div.textContent = texto;            // textContent: nada de HTML inyectado
+  if (meta) {
+    const m = document.createElement('div');
+    m.className = 'meta';
+    m.textContent = meta;
+    div.appendChild(m);
+  }
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function preguntar(texto) {
+  burbuja(texto, 'vos');
+  entrada.value = '';
+  enviar.disabled = true;
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({mensaje: texto})
+    });
+    const datos = await r.json();
+    if (!r.ok) throw new Error(datos.error || 'error del servidor');
+    burbuja(datos.respuesta, 'rama',
+            `${datos.fuente} · ${datos.intencion} · confianza ${datos.confianza}`);
+  } catch (e) {
+    burbuja('No pude hablar con el servidor: ' + e.message, 'rama');
+  } finally {
+    enviar.disabled = false;
+    entrada.focus();
+  }
+}
+
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const texto = entrada.value.trim();
+  if (texto) preguntar(texto);
+});
+
+const ejemplos = ['hola', '¿quién sos?', '¿cómo funcionás?', 'cuánto es 12*7',
+                  '¿qué hora es?', 'tirá un dado de 20', 'contame un chiste',
+                  'aprende: mi color favorito = verde'];
+const barra = document.getElementById('sugerencias');
+for (const ej of ejemplos) {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.type = 'button'; b.textContent = ej;
+  b.onclick = () => preguntar(ej);
+  barra.appendChild(b);
+}
+
+fetch('/api/estado').then(r => r.json()).then(d => {
+  document.getElementById('estado').textContent =
+    `v${d.version} · ${d.intenciones} intenciones · ${d.patrones} patrones · ${d.aprendido} cosas aprendidas`;
+}).catch(() => {});
+
+burbuja('¡Hola! Soy Rama, una mini IA hecha a mano. Preguntame algo o tocá una sugerencia.', 'rama');
+</script>
+</body>
+</html>

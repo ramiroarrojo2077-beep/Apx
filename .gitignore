@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Memoria que Rama escribe en tiempo de ejecución: es de cada instalación.
+data/aprendido.json

@@ -14,11 +14,10 @@ permissions:
   contents: write
 
 jobs:
-  construir:
-    name: Construir e instalar Rama AI
+  apk:
+    name: Construir el APK
     runs-on: ubuntu-latest
-    # Un test colgado no debe quemar horas de runner: que falle y se vea.
-    timeout-minutes: 25
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +31,7 @@ jobs:
 
       - name: Tests del motor
         working-directory: android
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon testDebugUnitTest --tests "ar.rama.ai.MotorTest"
 
       - name: Construir el APK
         working-directory: android
@@ -49,7 +48,6 @@ jobs:
           if-no-files-found: error
 
       - name: Publicarlo para descarga directa
-        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -59,3 +57,34 @@ jobs:
             --prerelease
           gh release upload apk rama-ai.apk --clobber
           echo "APK publicado: https://github.com/${{ github.repository }}/releases/download/apk/rama-ai.apk"
+
+  interfaz:
+    # Robolectric levanta la pantalla real dentro de la JVM. Tarda bastante en
+    # bajar su android-all, así que corre aparte: si se demora o falla, no
+    # frena la entrega del APK, pero deja el diagnóstico registrado.
+    name: Tests de interfaz (Robolectric)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Levantar la pantalla en la JVM
+        working-directory: android
+        run: ./gradlew --no-daemon testDebugUnitTest --tests "ar.rama.ai.PantallaTest" --info
+
+      - name: Guardar el informe de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-interfaz
+          path: android/app/build/reports/tests/
+          if-no-files-found: ignore

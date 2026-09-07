@@ -114,7 +114,7 @@ android/              la app (Kotlin, sin dependencias)
 
 `android/` es una app nativa de Android con el mismo motor portado a Kotlin,
 **sin AndroidX, sin Material, sin una sola librería de terceros**: sólo el
-framework. El APK pesa unos cientos de KB y no pide ningún permiso — los
+framework. El APK pesa 876 KB y no pide ningún permiso — los
 archivos llegan por el selector del sistema (SAF), así que Rama sólo ve lo que
 vos le pasás.
 
@@ -175,8 +175,8 @@ que analizó.
 **El límite, dicho de frente:** Rama lee el archivo, no lo entiende. Sabe que
 tu foto es vertical, de 12 MP y predominantemente azul; no sabe que hay un
 perro en ella. Del PDF cuenta las páginas y dibuja la portada, pero no extrae
-el texto. Para eso haría falta un modelo de visión, y eso ya no entra en un
-APK de 300 KB sin internet.
+el texto. Para eso haría falta un modelo de visión, y eso no entra en un APK
+de 876 KB que funciona sin internet.
 
 
 ## Enseñarle cosas

@@ -114,9 +114,7 @@ android/              la app (Kotlin, sin dependencias)
 
 `android/` es una app nativa de Android con el mismo motor portado a Kotlin,
 **sin AndroidX, sin Material, sin una sola librería de terceros**: sólo el
-framework. (Robolectric, que corre la interfaz en los tests, sí depende de
-androidx.test, pero eso vive únicamente en el classpath de test: el APK no
-lleva una sola clase de androidx.) El APK pesa 876 KB y no pide ningún permiso — los
+framework. El APK pesa 876 KB y no pide ningún permiso — los
 archivos llegan por el selector del sistema (SAF), así que Rama sólo ve lo que
 vos le pasás.
 

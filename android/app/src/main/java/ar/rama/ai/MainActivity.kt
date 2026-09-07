@@ -53,7 +53,11 @@ class MainActivity : Activity() {
     private var modoPensar = true
     private var ultimoAdjunto: Adjunto? = null
 
-    private val trabajador = Executors.newSingleThreadExecutor()
+    // Hilo demonio: si no lo fuera, seguiría vivo después de cerrar la
+    // pantalla y mantendría el proceso (y la JVM de los tests) en pie.
+    private val trabajador = Executors.newSingleThreadExecutor { tarea ->
+        Thread(tarea, "rama-motor").apply { isDaemon = true }
+    }
     private val principal = Handler(Looper.getMainLooper())
 
     // -------------------------------------------------------- ciclo de vida

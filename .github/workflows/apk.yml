@@ -17,6 +17,8 @@ jobs:
   construir:
     name: Construir e instalar Rama AI
     runs-on: ubuntu-latest
+    # Un test colgado no debe quemar horas de runner: que falle y se vea.
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4

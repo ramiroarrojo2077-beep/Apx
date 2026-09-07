@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.TextView
 import java.util.concurrent.TimeUnit
+import org.junit.After
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 
 /**
@@ -25,8 +27,20 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class PantallaTest {
 
-    private fun abrirPantalla(): MainActivity =
-        Robolectric.buildActivity(MainActivity::class.java).setup().get()
+    private val abiertas = mutableListOf<ActivityController<MainActivity>>()
+
+    @After
+    fun cerrarPantallas() {
+        // Sin esto, cada test dejaría una Activity viva con su hilo de trabajo.
+        abiertas.forEach { runCatching { it.pause().stop().destroy() } }
+        abiertas.clear()
+    }
+
+    private fun abrirPantalla(): MainActivity {
+        val controlador = Robolectric.buildActivity(MainActivity::class.java).setup()
+        abiertas.add(controlador)
+        return controlador.get()
+    }
 
     private fun raiz(actividad: MainActivity): View =
         actividad.findViewById(android.R.id.content)

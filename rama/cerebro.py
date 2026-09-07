@@ -2,12 +2,14 @@
 
 import json
 import random
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .memoria import Memoria
 from .skills import SKILLS
+from .texto import normalizar, tokenizar
 from .vectorizador import Vectorizador, similitud
 
 ARCHIVO_CONOCIMIENTO = Path(__file__).resolve().parent.parent / "data" / "conocimiento.json"
@@ -25,6 +27,14 @@ SIN_IDEA = (
 
 
 @dataclass
+class Paso:
+    """Un paso del razonamiento, para el modo pensar."""
+
+    titulo: str
+    detalle: str
+
+
+@dataclass
 class Respuesta:
     """Lo que Rama contesta, con la trazabilidad de cómo lo decidió."""
 
@@ -33,6 +43,7 @@ class Respuesta:
     confianza: float = 0.0
     fuente: str = "fallback"
     candidatos: list[tuple[str, float]] = field(default_factory=list)
+    pasos: list[Paso] = field(default_factory=list)
 
     def __str__(self) -> str:
         return self.texto
@@ -149,29 +160,77 @@ class Rama:
             return Respuesta("Decime algo y te contesto.", "vacio", 0.0, "guardia")
 
         self.memoria.registrar_turno("usuario", texto)
+        pasos: list[Paso] = []
+
+        plano = normalizar(texto)
+        tokens = tokenizar(texto)
+        pasos.append(Paso("Normalización",
+                          f"«{texto}»\n→ «{plano}»\ntokens: {', '.join(tokens)}"))
+
+        corregido = self.vectorizador.corrector.corregir(texto)
+        pasos.append(Paso(
+            "Corrección de erratas",
+            "sin cambios: todas las palabras me suenan conocidas" if corregido == plano
+            else f"«{plano}»\n→ «{corregido}»  (Damerau-Levenshtein contra mi vocabulario)",
+        ))
 
         for skill in SKILLS:
             salida = skill(texto, self)
             if salida:
+                nombre = skill.__name__.replace("skill_", "").replace("_", " ")
+                pasos.append(Paso("Habilidades",
+                                  f"coincidió la habilidad «{nombre}»: respuesta exacta, "
+                                  "sin buscar por similitud"))
+                pasos.append(Paso("Decisión",
+                                  "una habilidad determinista resuelve la consulta, "
+                                  "así que no hay incertidumbre"))
                 self.memoria.registrar_turno("rama", salida)
-                return Respuesta(salida, skill.__name__, 1.0, "skill")
+                return Respuesta(salida, skill.__name__, 1.0, "skill", pasos=pasos)
+
+        nombres = ", ".join(s.__name__.replace("skill_", "").replace("_", " ") for s in SKILLS)
+        pasos.append(Paso("Habilidades", f"ninguna de las {len(SKILLS)} habilidades aplicó ({nombres})"))
+
+        vector = self.vectorizador.vectorizar(texto, corregir=True)
+        familias = Counter(rasgo[0] for rasgo in vector)
+        pasos.append(Paso(
+            "Vectorización TF-IDF",
+            f"{len(vector)} rasgos: {familias['p']} raíces, {familias['b']} bigramas, "
+            f"{familias['n']} trigramas de letra\n"
+            f"comparo contra {len(self.entradas)} patrones "
+            f"(vocabulario de {len(self.vectorizador.idf)} rasgos)",
+        ))
 
         ranking = self.clasificar(texto)
         candidatos = [(i, round(p, 4)) for i, p, _ in ranking[:3]]
+        pasos.append(Paso(
+            "Similitud coseno",
+            "ningún patrón comparte rasgos con tu frase" if not ranking
+            else "\n".join(f"{p:.3f}  {i.replace('_', ' ')}" for i, p, _ in ranking[:4]),
+        ))
 
         if ranking and ranking[0][1] >= UMBRAL_BAJO:
             intencion, confianza, fuente = ranking[0]
             respuesta = self._elegir_respuesta(intencion)
-            if confianza < UMBRAL_ALTO:
+            segura = confianza >= UMBRAL_ALTO
+            if not segura:
                 respuesta = f"No estoy del todo segura, pero creo que va por acá: {respuesta}"
+            pasos.append(Paso(
+                "Decisión",
+                f"confianza {confianza:.3f} ≥ {UMBRAL_ALTO} → respondo directo" if segura
+                else f"confianza {confianza:.3f} entre {UMBRAL_BAJO} y {UMBRAL_ALTO} → "
+                     "respondo, pero aviso que dudo",
+            ))
             self.memoria.ultima_pregunta_sin_respuesta = None
             self.memoria.registrar_turno("rama", respuesta)
-            return Respuesta(respuesta, intencion, round(confianza, 4), fuente, candidatos)
+            return Respuesta(respuesta, intencion, round(confianza, 4), fuente, candidatos, pasos)
 
+        confianza = ranking[0][1] if ranking else 0.0
+        pasos.append(Paso("Decisión",
+                          f"confianza {confianza:.3f} < {UMBRAL_BAJO} → "
+                          "prefiero decir que no sé antes que inventar"))
         salida = self._sin_respuesta(texto, ranking)
         self.memoria.registrar_turno("rama", salida)
-        return Respuesta(salida, "desconocida", round(ranking[0][1], 4) if ranking else 0.0,
-                         "fallback", candidatos)
+        return Respuesta(salida, "desconocida", round(confianza, 4), "fallback", candidatos, pasos)
 
     def _sin_respuesta(self, texto: str, ranking: list[tuple[str, float, str]]) -> str:
         """Admite la ignorancia y ofrece el camino para arreglarla."""

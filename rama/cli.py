@@ -10,6 +10,7 @@ from .memoria import Memoria
 VERDE = "\033[92m"
 CIAN = "\033[96m"
 GRIS = "\033[90m"
+MAGENTA = "\033[95m"
 NEGRITA = "\033[1m"
 FIN = "\033[0m"
 
@@ -23,6 +24,7 @@ BANNER = r"""
 
 AYUDA = """Comandos:
   /ayuda        esta ayuda
+  /pensar       muestra u oculta el razonamiento paso a paso
   /debug        muestra u oculta la confianza y los candidatos de cada respuesta
   /aprendido    lista lo que te aprendí
   /olvidar X    borra lo aprendido sobre X
@@ -51,6 +53,12 @@ def ejecutar_comando(linea: str, ia: Rama, estado: dict, pintar) -> bool:
         return False
     if comando == "/ayuda":
         print(AYUDA)
+    elif comando == "/pensar":
+        estado["pensar"] = not estado["pensar"]
+        print(pintar(
+            "modo pensar activado: te muestro cada paso" if estado["pensar"]
+            else "modo pensar desactivado", GRIS,
+        ))
     elif comando == "/debug":
         estado["debug"] = not estado["debug"]
         print(pintar(f"debug {'activado' if estado['debug'] else 'desactivado'}", GRIS))
@@ -82,7 +90,7 @@ def ejecutar_comando(linea: str, ia: Rama, estado: dict, pintar) -> bool:
 
 def repl(ia: Rama, color: bool = True) -> int:
     pintar = sin_color(color)
-    estado = {"debug": False}
+    estado = {"debug": False, "pensar": False}
     print(pintar(BANNER, CIAN))
     print(pintar(f"  Rama AI v{__version__} · mini IA en Python puro · /ayuda para empezar\n", GRIS))
 
@@ -102,6 +110,11 @@ def repl(ia: Rama, color: bool = True) -> int:
             continue
 
         respuesta = ia.responder(linea)
+        if estado["pensar"]:
+            for paso in respuesta.pasos:
+                sangrado = paso.detalle.replace("\n", "\n        ")
+                print(pintar(f"  🧠 {paso.titulo.upper()}", MAGENTA))
+                print(pintar(f"        {sangrado}", GRIS))
         print(pintar(f"Rama: {respuesta.texto}", VERDE))
         if estado["debug"]:
             candidatos = ", ".join(f"{i}={p}" for i, p in respuesta.candidatos) or "-"

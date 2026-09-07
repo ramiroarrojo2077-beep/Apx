@@ -202,6 +202,31 @@ class TestRama(unittest.TestCase):
             Rama(conocimiento=malo, memoria=Memoria(Path(self.dir.name) / "n.json"))
 
 
+class TestModoPensar(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+        self.ia = Rama(memoria=Memoria(Path(self.dir.name) / "m.json"), semilla=7)
+
+    def test_deja_traza_de_razonamiento(self):
+        pasos = self.ia.responder("que es python").pasos
+        titulos = [p.titulo for p in pasos]
+        self.assertIn("Normalización", titulos)
+        self.assertIn("Similitud coseno", titulos)
+        self.assertIn("Decisión", titulos)
+        self.assertTrue(all(p.detalle.strip() for p in pasos))
+
+    def test_la_traza_muestra_la_correccion(self):
+        paso = next(p for p in self.ia.responder("que es pyhton").pasos
+                    if p.titulo == "Corrección de erratas")
+        self.assertIn("python", paso.detalle)
+
+    def test_las_skills_tambien_dejan_traza(self):
+        pasos = self.ia.responder("cuanto es 2*3").pasos
+        self.assertTrue(any(p.titulo == "Habilidades" and "calculadora" in p.detalle
+                            for p in pasos))
+
+
 class TestServidor(unittest.TestCase):
     def setUp(self):
         import threading

@@ -60,8 +60,47 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        instalarReporteDeErrores()
         setContentView(construirPantalla())
         cargarCerebro()
+    }
+
+    /**
+     * Deja el motivo del cierre escrito en disco.
+     *
+     * Si Rama se cae, Android mata el proceso y el usuario no ve nada: sólo
+     * una app que "no responde". Guardamos el error para mostrarlo en el
+     * próximo arranque, que es la única forma de enterarse sin cable ni adb.
+     */
+    private fun instalarReporteDeErrores() {
+        val anterior = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { hilo, error ->
+            try {
+                File(filesDir, ARCHIVO_ERROR).writeText(
+                    "${java.util.Date()}\nhilo: ${hilo.name}\n\n${error.stackTraceToString()}"
+                )
+            } catch (e: Throwable) {
+                // Si ni siquiera podemos escribir el error, no hay nada que hacer.
+            }
+            anterior?.uncaughtException(hilo, error)
+        }
+    }
+
+    /** Si la vez pasada nos cerramos, contamos por qué. */
+    private fun mostrarErrorAnterior() {
+        val archivo = File(filesDir, ARCHIVO_ERROR)
+        if (!archivo.exists()) return
+        val detalle = try {
+            archivo.readText()
+        } catch (e: Exception) {
+            return
+        } finally {
+            archivo.delete()
+        }
+        burbujaRama(
+            "La vez pasada me cerré sola por un error. Te lo dejo tal cual, " +
+                "para que se pueda arreglar:\n\n$detalle"
+        )
     }
 
     override fun onDestroy() {
@@ -71,6 +110,16 @@ class MainActivity : Activity() {
 
     private fun cargarCerebro() {
         subtitulo.text = "despertando…"
+        principal.postDelayed({
+            if (rama == null) {
+                subtitulo.text = "no pude cargar"
+                burbujaRama(
+                    "Algo me está trabando el arranque: pasaron ${ESPERA_ARRANQUE / 1000} segundos y " +
+                        "todavía no cargué mi base de conocimiento. Probá cerrar y volver a abrir; " +
+                        "si sigue igual, el error queda anotado y te lo muestro en el próximo arranque."
+                )
+            }
+        }, ESPERA_ARRANQUE)
         enSegundoPlano("cargando mi base de conocimiento") {
             val conocimiento = assets.open("conocimiento.json").bufferedReader().use { it.readText() }
             val memoria = Memoria(AlmacenArchivo(File(filesDir, "aprendido.json")))
@@ -84,6 +133,7 @@ class MainActivity : Activity() {
                         "sin internet, sin cuenta, sin nube.\n\n" +
                         "Preguntame algo, tocá 🧠 para verme pensar, o mandame una foto, un PDF o un video con ＋."
                 )
+                mostrarErrorAnterior()
                 atenderArchivoCompartido()
             }
         }
@@ -627,6 +677,8 @@ class MainActivity : Activity() {
 
     companion object {
         private const val PEDIDO_ARCHIVO = 1001
+        private const val ARCHIVO_ERROR = "ultimo-error.txt"
+        private const val ESPERA_ARRANQUE = 8000L
         private const val RITMO_PENSAR = 230L
         private val PREGUNTA_POR_ADJUNTO =
             Regex("\\b(archivo|foto|imagen|pdf|video|adjunt\\w*|documento)\\b")

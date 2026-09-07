@@ -84,7 +84,7 @@ en vez de inventar. Un modelo chico que alucina es peor que uno que se calla.
 ## Estructura
 
 ```
-rama/
+rama/                 la versión de escritorio (Python)
   texto.py          normalización, stopwords, stemmer del español
   correccion.py     Damerau-Levenshtein + corrector contra el vocabulario
   vectorizador.py   TF-IDF y similitud coseno, a mano
@@ -99,7 +99,85 @@ data/
   evaluacion.json   set de evaluación
 web/index.html      interfaz de chat
 tests/test_rama.py  38 tests
+
+android/              la app (Kotlin, sin dependencias)
+  app/src/main/java/ar/rama/ai/
+    motor/            el mismo cerebro portado: Texto, Correccion,
+                      Vectorizador, Calculadora, Memoria, Skills, Cerebro
+    MainActivity.kt   el chat, el modo pensar y los adjuntos
+    AnalizadorAdjuntos.kt  fotos, PDFs y videos
+    Ui.kt             paleta y drawables generados en código
+  app/src/test/       38 tests del motor, en la JVM
 ```
+
+## En el teléfono: la app Android
+
+`android/` es una app nativa de Android con el mismo motor portado a Kotlin,
+**sin AndroidX, sin Material, sin una sola librería de terceros**: sólo el
+framework. El APK pesa unos cientos de KB y no pide ningún permiso — los
+archivos llegan por el selector del sistema (SAF), así que Rama sólo ve lo que
+vos le pasás.
+
+### Bajar el APK
+
+Cada push construye el APK en GitHub Actions y lo publica acá:
+
+**https://github.com/ramiroarrojo2077-beep/Apx/releases/download/apk/rama-ai.apk**
+
+Está firmado con la clave *debug* de Android: para instalarlo hay que permitir
+"instalar apps de orígenes desconocidos" en el teléfono. Es un build de
+desarrollo, no una publicación de Play Store.
+
+### Construirlo vos
+
+```bash
+cd android
+./gradlew testDebugUnitTest   # 38 tests del motor, en la JVM
+./gradlew assembleDebug       # app/build/outputs/apk/debug/app-debug.apk
+```
+
+Requiere JDK 17 y el SDK de Android (`compileSdk 34`). `minSdk 26`, o sea
+Android 8.0 en adelante.
+
+### Modo pensar
+
+El botón 🧠 del encabezado despliega, antes de cada respuesta, el razonamiento
+real del motor paso a paso:
+
+```
+NORMALIZACIÓN        «¿Qué es Pyhton?» → «que es pyhton»
+                     tokens: pyhton
+CORRECCIÓN           «que es pyhton» → «que es python»
+HABILIDADES          ninguna de las 6 habilidades aplicó
+VECTORIZACIÓN        41 rasgos: 1 raíz, 0 bigramas, 40 trigramas
+SIMILITUD COSENO     0.544  python
+                     0.061  que es tfidf
+DECISIÓN             confianza 0.544 ≥ 0.42 → respondo directo
+```
+
+No es una animación decorativa: son los pasos que el motor ejecutó, con los
+números que realmente usó para decidir. Se despliegan con un ritmo de ~230 ms
+para que se puedan leer, y quedan plegados bajo la respuesta.
+
+### Fotos, PDFs y videos
+
+Con **＋** (o compartiéndole un archivo desde otra app) Rama analiza:
+
+| Tipo | Qué extrae |
+|---|---|
+| **Foto** | dimensiones, megapíxeles, proporción, color medio y luminosidad reales (promedia los píxeles), y el EXIF: cámara, fecha, apertura, exposición, ISO |
+| **PDF** | cantidad de páginas, tamaño de hoja (A4, Carta, A3…), orientación y una miniatura de la portada renderizada con `PdfRenderer` |
+| **Video** | duración, resolución y etiqueta de calidad (HD/Full HD/4K), rotación, bitrate, cuadros por segundo y un fotograma del 10% |
+
+Después podés preguntarle "¿cuántas páginas tenía el PDF?" y responde con lo
+que analizó.
+
+**El límite, dicho de frente:** Rama lee el archivo, no lo entiende. Sabe que
+tu foto es vertical, de 12 MP y predominantemente azul; no sabe que hay un
+perro en ella. Del PDF cuenta las páginas y dibuja la portada, pero no extrae
+el texto. Para eso haría falta un modelo de visión, y eso ya no entra en un
+APK de 300 KB sin internet.
+
 
 ## Enseñarle cosas
 

@@ -1,0 +1,59 @@
+name: APK
+
+# El SDK de Android no se puede descargar desde el entorno de desarrollo de
+# este repo, así que el APK se construye acá, donde sí está disponible.
+on:
+  push:
+    paths:
+      - "android/**"
+      - "data/conocimiento.json"
+      - ".github/workflows/apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  construir:
+    name: Construir e instalar Rama AI
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Tests del motor
+        working-directory: android
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Construir el APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Renombrar el APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk rama-ai.apk
+
+      - name: Guardar el APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: rama-ai-apk
+          path: rama-ai.apk
+          if-no-files-found: error
+
+      - name: Publicarlo para descarga directa
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view apk >/dev/null 2>&1 || gh release create apk \
+            --title "Rama AI · APK" \
+            --notes "APK de desarrollo, firmado con la clave debug de Android. Se actualiza en cada push." \
+            --prerelease
+          gh release upload apk rama-ai.apk --clobber
+          echo "APK publicado: https://github.com/${{ github.repository }}/releases/download/apk/rama-ai.apk"

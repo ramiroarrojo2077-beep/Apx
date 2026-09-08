@@ -46,6 +46,34 @@ La inferencia es [llama.cpp](https://github.com/ggml-org/llama.cpp) (fijado en l
 versión `b10855`) compilado dentro del APK para `arm64-v8a`, con un puente JNI
 propio en `app/src/main/cpp/rama_llama.cpp`.
 
+## Modos
+
+La fila de arriba cambia cómo escribe. No son disfraces: cada modo mueve la
+temperatura del muestreo, cuánto se extiende y si sale a buscar.
+
+| Modo | Para qué | Temperatura | Largo | Busca |
+|---|---|---|---|---|
+| 💬 **Charla** | conversación, dos o tres oraciones | 0.7 | 320 | sí |
+| 🎯 **Preciso** | ir al dato; se calla si no sabe | 0.2 | 280 | sí |
+| 📚 **Explicar** | entender algo, con ejemplo y paso a paso | 0.5 | 700 | sí |
+| ✨ **Creativo** | escribir, imaginar, jugar | 1.0 | 700 | no |
+| ⚡ **Al hueso** | una o dos frases, nada más | 0.4 | 120 | sí |
+
+**Siempre en español.** La regla de idioma va primera y en mayúsculas en el
+mensaje de sistema de todos los modos: los modelos chicos multilingües se van
+al inglés apenas pueden, y eso es lo que más lo frena.
+
+**Sin pensamientos en el texto.** Los modelos tipo Qwen3 escriben su
+razonamiento entre `<think>` y `</think>` antes de contestar. Rama lo saca del
+chat de dos formas: le pide al modelo que no razone en voz alta (`/no_think`,
+que Qwen3 entiende) y además **filtra la salida mientras llega**, por si igual
+lo escribe. Ese razonamiento no se tira: aparece en el modo pensar 🧠, que es
+donde tiene sentido leerlo.
+
+El filtro trabaja sobre texto que llega de a pedacitos, así que aguanta que la
+etiqueta venga partida entre dos tokens (`<th` + `ink>`), que el modelo nunca
+la cierre, y que aparezca un `<` suelto en una fórmula.
+
 ## Qué sale del teléfono, y qué no
 
 - **Tus conversaciones: nunca.** El modelo corre local. No hay a dónde mandarlas.

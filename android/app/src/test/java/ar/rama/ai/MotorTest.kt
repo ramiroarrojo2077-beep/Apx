@@ -5,6 +5,8 @@ import ar.rama.ai.motor.Asistente
 import ar.rama.ai.motor.Buscador
 import ar.rama.ai.motor.Catalogo
 import ar.rama.ai.motor.Descargador
+import ar.rama.ai.motor.FiltroPensamiento
+import ar.rama.ai.motor.Modos
 import ar.rama.ai.motor.Generador
 import ar.rama.ai.motor.Mensaje
 import ar.rama.ai.motor.Resultado
@@ -513,6 +515,105 @@ class MotorTest {
     fun losHilosRecomendadosSonRazonables() {
         val hilos = Generador.hilosRecomendados()
         assertTrue("hilos fuera de rango: $hilos", hilos in 2..6)
+    }
+
+    // ------------------------------------------- pensamiento y modos
+
+    private fun filtrar(fragmentos: List<String>): Pair<String, String> {
+        val filtro = FiltroPensamiento()
+        val visible = StringBuilder()
+        fragmentos.forEach { visible.append(filtro.procesar(it)) }
+        visible.append(filtro.cerrar())
+        return visible.toString() to filtro.pensado
+    }
+
+    @Test
+    fun sacaElPensamientoDelTexto() {
+        val (visible, pensado) = filtrar(listOf("<think>debo responder X</think>La capital es París."))
+        assertEquals("La capital es París.", visible)
+        assertEquals("debo responder X", pensado)
+    }
+
+    @Test
+    fun aguantaLaEtiquetaPartidaEntreTokens() {
+        val (visible, pensado) = filtrar(listOf("<th", "ink>", "pen", "sando", "</thi", "nk>", "Hola", " che"))
+        assertEquals("Hola che", visible)
+        assertEquals("pensando", pensado)
+    }
+
+    @Test
+    fun noTocaElTextoLimpio() {
+        val (visible, pensado) = filtrar(listOf("Respuesta ", "normal."))
+        assertEquals("Respuesta normal.", visible)
+        assertEquals("", pensado)
+    }
+
+    @Test
+    fun noSeComeLosMenorQue() {
+        assertEquals("2 < 3 y 4 > 1", filtrar(listOf("2 < 3 y ", "4 > 1")).first)
+    }
+
+    @Test
+    fun elPensamientoSinCerrarNoSeFiltra() {
+        val (visible, pensado) = filtrar(listOf("<think>me quedé pensando y no cerré"))
+        assertEquals("", visible)
+        assertTrue(pensado.contains("no cerré"))
+    }
+
+    @Test
+    fun elPensamientoLlegaTokenATokenIgual() {
+        val tokens = "<think>\nBusco.\n</think>\n\nEs París.".map { it.toString() }
+        assertEquals("Es París.", filtrar(tokens).first.trim())
+    }
+
+    @Test
+    fun todosLosModosPidenEspanol() {
+        assertTrue(Modos.BASE.contains("español rioplatense"))
+        assertTrue("no prohíbe otros idiomas", Modos.BASE.contains("Nunca contestes en"))
+        assertTrue("no prohíbe mostrar el razonamiento", Modos.BASE.contains("No muestres tu razonamiento"))
+        for (modo in Modos.TODOS) {
+            val sistema = Modos.sistema(modo)
+            assertTrue("«${modo.nombre}» no lleva la base", sistema.contains("español rioplatense"))
+            assertTrue("«${modo.nombre}» no lleva su instrucción", sistema.contains(modo.instruccion))
+        }
+    }
+
+    @Test
+    fun losModosSonDistintosEntreSi() {
+        assertEquals(5, Modos.TODOS.size)
+        assertEquals(Modos.TODOS.size, Modos.TODOS.map { it.id }.toSet().size)
+        val temperaturas = Modos.TODOS.map { it.temperatura }
+        assertTrue("las temperaturas no varían", temperaturas.toSet().size > 1)
+        assertTrue(Modos.CREATIVO.temperatura > Modos.PRECISO.temperatura)
+        assertTrue(Modos.AL_HUESO.maxTokens < Modos.EXPLICAR.maxTokens)
+        assertTrue(Modos.TODOS.all { it.temperatura in 0.1f..1.2f && it.maxTokens >= 100 })
+    }
+
+    @Test
+    fun elModoDesconocidoCaeEnElPredeterminado() {
+        assertEquals(Modos.PREDETERMINADO.id, Modos.porId("no-existe").id)
+        assertEquals(Modos.PREDETERMINADO.id, Modos.porId(null).id)
+        assertEquals("preciso", Modos.porId("preciso").id)
+    }
+
+    @Test
+    fun elModoCreativoNoSaleABuscar() {
+        val asistente = nuevoAsistente()
+        asistente.modo = Modos.CREATIVO
+        assertNull(asistente.motivoParaBuscar("busca lo que sea hoy", true, false))
+        asistente.modo = Modos.PRECISO
+        assertNotNull(asistente.motivoParaBuscar("busca lo que sea hoy", true, false))
+    }
+
+    @Test
+    fun elModoDefineElMensajeDeSistema() {
+        val asistente = nuevoAsistente()
+        asistente.modo = Modos.AL_HUESO
+        val conversacion = asistente.armarConversacion("hola", emptyList(), null, emptyList(), emptyList())
+        assertEquals("system", conversacion.first().rol)
+        assertTrue(conversacion.first().contenido.contains(Modos.AL_HUESO.instruccion))
+        assertTrue("falta apagar el razonamiento del modelo",
+            conversacion.last().contenido.contains(Asistente.SIN_RAZONAR))
     }
 
     // ------------------------------------------------------ modo pensar

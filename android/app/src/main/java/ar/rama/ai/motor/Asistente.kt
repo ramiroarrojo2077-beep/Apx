@@ -25,6 +25,8 @@ class Asistente(
 ) {
 
     var generador: Generador? = null
+    var modo: Modo = Modos.PREDETERMINADO
+    /** Interruptor general del usuario; cada modo además decide si le sirve. */
     var buscarEnWeb: Boolean = true
 
     fun responder(
@@ -100,10 +102,31 @@ class Asistente(
             "el modelo escribe la respuesta con ${conversacion.size - 1} mensajes de contexto\n" + motor.info
         )
 
+        // El razonamiento del modelo se saca del texto y se guarda aparte:
+        // en el chat va la respuesta, no el borrador.
+        val filtro = FiltroPensamiento()
         val construida = StringBuilder()
-        motor.responder(conversacion) { fragmento ->
-            construida.append(fragmento)
-            alFragmento(fragmento)
+        motor.responder(
+            conversacion = conversacion,
+            maxTokens = modo.maxTokens,
+            temperatura = modo.temperatura,
+            topP = modo.topP,
+        ) { fragmento ->
+            val visible = filtro.procesar(fragmento)
+            if (visible.isNotEmpty()) {
+                construida.append(visible)
+                alFragmento(visible)
+            } else {
+                true
+            }
+        }
+        val cola = filtro.cerrar()
+        if (cola.isNotEmpty()) {
+            construida.append(cola)
+            alFragmento(cola)
+        }
+        if (filtro.pensado.isNotEmpty()) {
+            paso("Razonamiento del modelo", filtro.pensado)
         }
 
         val texto = construida.toString().trim().ifEmpty {
@@ -141,19 +164,21 @@ class Asistente(
             }
         }
 
-        val mensajes = mutableListOf(Mensaje("system", SISTEMA))
+        val mensajes = mutableListOf(Mensaje("system", Modos.sistema(modo)))
         // Sólo los últimos turnos: el contexto del modelo es chico y caro.
         historial.takeLast(TURNOS_DE_HISTORIAL).forEach { mensajes.add(it) }
 
         val cuerpo = if (contexto.isEmpty()) pregunta
         else "$contexto---\nPregunta: $pregunta"
-        mensajes.add(Mensaje("user", cuerpo))
+        // Qwen3 y otros modelos híbridos apagan su modo de razonamiento con
+        // esta marca. Ahorra tokens; el filtro es la red por si la ignoran.
+        mensajes.add(Mensaje("user", "$cuerpo $SIN_RAZONAR"))
         return mensajes
     }
 
     /** Decide si vale la pena salir a internet, y por qué. */
     fun motivoParaBuscar(pregunta: String, sinContextoLocal: Boolean, hayDatoExacto: Boolean): String? {
-        if (!buscarEnWeb) return null
+        if (!buscarEnWeb || !modo.buscaEnWeb) return null
         val plano = Texto.normalizar(pregunta)
         return when {
             PIDE_BUSCAR.containsMatchIn(plano) -> "me lo pediste explícitamente"
@@ -166,14 +191,7 @@ class Asistente(
 
     companion object {
         const val TURNOS_DE_HISTORIAL = 6
-
-        val SISTEMA = """
-            Sos Rama, una IA que corre entera dentro del teléfono del usuario.
-            Respondé siempre en español rioplatense, de forma directa y breve.
-            Si te dan un DATO VERIFICADO, usalo tal cual: es correcto.
-            Si te dan RESULTADOS DE BÚSQUEDA, respondé con eso y citá la fuente entre corchetes.
-            Si no sabés algo, decilo. Nunca inventes fechas, cifras, nombres ni enlaces.
-        """.trimIndent()
+        const val SIN_RAZONAR = "/no_think"
 
         private val PIDE_BUSCAR = Regex(
             "\\b(busca|buscar|buscame|googlea|fijate en internet|en la web|en internet)\\b"

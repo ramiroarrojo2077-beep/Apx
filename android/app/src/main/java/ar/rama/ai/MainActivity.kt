@@ -30,6 +30,8 @@ import ar.rama.ai.motor.Asistente
 import ar.rama.ai.motor.Generador
 import ar.rama.ai.motor.Memoria
 import ar.rama.ai.motor.Mensaje
+import ar.rama.ai.motor.Modo
+import ar.rama.ai.motor.Modos
 import ar.rama.ai.motor.PasoAsistente
 import ar.rama.ai.motor.Descargador
 import ar.rama.ai.motor.Rama
@@ -58,6 +60,8 @@ class MainActivity : Activity() {
     private var modelos: PantallaModelos? = null
     private lateinit var chipModelo: TextView
     private val historial = mutableListOf<Mensaje>()
+    private val chipsModo = mutableListOf<Pair<Modo, TextView>>()
+    private var modoActual = Modos.PREDETERMINADO
     private var modoPensar = true
     private var generando = false
     private var ultimoAdjunto: Adjunto? = null
@@ -74,6 +78,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         instalarReporteDeErrores()
+        modoActual = Modos.porId(preferencias().getString("modo", null))
 
         val raiz = android.widget.FrameLayout(this)
         raiz.addView(construirPantalla())
@@ -152,6 +157,7 @@ class MainActivity : Activity() {
             val motor = Rama(conocimiento, memoria)
             val ayudante = Asistente(motor)
             principal.post {
+                ayudante.modo = modoActual
                 asistente = ayudante
                 subtitulo.text = "${motor.totalIntenciones} temas · ${motor.totalPatrones} patrones"
                 burbujaRama(
@@ -159,7 +165,8 @@ class MainActivity : Activity() {
                         "escribe mis respuestas es mío y local, no consulto la IA de nadie.\n\n" +
                         "Para que pueda redactar respuestas propias necesito un modelo: tocalo " +
                         "arriba a la derecha y elegí uno. Sin él sigo andando con mi base y mis " +
-                        "habilidades, que son exactas pero acotadas."
+                        "habilidades, que son exactas pero acotadas.\n\n" +
+                        "Arriba tenés los modos: cambian cómo escribo. Siempre contesto en español."
                 )
                 mostrarErrorAnterior()
                 restaurarModelo()
@@ -178,6 +185,7 @@ class MainActivity : Activity() {
         }
         raiz.addView(construirEncabezado())
         raiz.addView(construirDivisor())
+        raiz.addView(construirModos())
 
         scrollChat = ScrollView(this).apply {
             isFillViewport = true
@@ -262,6 +270,54 @@ class MainActivity : Activity() {
     private fun construirDivisor(): View = View(this).apply {
         setBackgroundColor(Paleta.BORDE)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1f))
+    }
+
+    /** La fila de modos: lo primero que se ve, porque cambia todo lo demás. */
+    private fun construirModos(): View {
+        val carrusel = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            setPadding(dp(12f), dp(9f), dp(12f), dp(3f))
+        }
+        val fila = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (modo in Modos.TODOS) {
+            val chip = TextView(this).estilo(12.5f).apply {
+                text = "${modo.icono} ${modo.nombre}"
+                padding(dp(12f), dp(7f))
+                setOnClickListener { elegirModo(modo) }
+                contentDescription = "Modo ${modo.nombre}: ${modo.descripcion}"
+            }
+            chipsModo.add(modo to chip)
+            fila.addView(
+                chip,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { rightMargin = dp(7f) },
+            )
+        }
+        carrusel.addView(fila)
+        pintarModos()
+        return carrusel
+    }
+
+    private fun elegirModo(modo: Modo) {
+        modoActual = modo
+        asistente?.modo = modo
+        preferencias().edit().putString("modo", modo.id).apply()
+        pintarModos()
+        avisar("${modo.icono} ${modo.nombre} · ${modo.descripcion}")
+    }
+
+    private fun pintarModos() {
+        for ((modo, chip) in chipsModo) {
+            val activo = modo.id == modoActual.id
+            chip.background = fondoPulsable(
+                if (activo) Paleta.ACENTO else Paleta.PANEL,
+                dp(16f).toFloat(),
+                Paleta.BORDE,
+                if (activo) 0 else dp(1f),
+            )
+            chip.setTextColor(if (activo) Paleta.ACENTO_OSCURO else Paleta.TENUE)
+        }
     }
 
     private fun construirSugerencias(): View {

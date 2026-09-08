@@ -485,11 +485,39 @@ class MotorTest {
 
     @Test
     fun elCatalogoOfreceVariosModelos() {
-        assertTrue("hacen falta al menos tres opciones", Catalogo.MODELOS.size >= 3)
+        assertTrue("pocas opciones: ${Catalogo.MODELOS.size}", Catalogo.MODELOS.size >= 8)
         assertNotNull(Catalogo.porId("qwen3-0.6b"))
-        assertNotNull(Catalogo.porId("qwen3-1.7b"))
+        assertNotNull(Catalogo.porId("qwen3-4b"))
         assertTrue(Catalogo.MODELOS.all { it.repositorio.isNotBlank() && it.archivo.endsWith(".gguf") })
-        assertTrue(Catalogo.CHICO.bytesAproximados < Catalogo.MEDIANO.bytesAproximados)
+        assertEquals(Catalogo.MODELOS.size, Catalogo.MODELOS.map { it.id }.toSet().size)
+    }
+
+    @Test
+    fun elCatalogoVaDeMenorAMayor() {
+        val pesos = Catalogo.MODELOS.map { it.bytesAproximados }
+        assertEquals("no está ordenado por tamaño", pesos.sorted(), pesos)
+    }
+
+    @Test
+    fun hayVariasFamiliasYUnRangoDePrecision() {
+        val familias = Catalogo.MODELOS.map { it.familia }.toSet()
+        assertTrue("hace falta más de una familia: $familias", familias.size >= 3)
+        assertTrue(Catalogo.MODELOS.any { it.precision == 3 })
+        assertTrue(Catalogo.MODELOS.any { it.velocidad == 3 })
+        assertTrue(Catalogo.MODELOS.all { it.precision in 1..3 && it.velocidad in 1..3 })
+    }
+
+    @Test
+    fun laBarraMuestraElPuntaje() {
+        assertEquals("●●○", Catalogo.CHICO.barra(2))
+        assertEquals("●●●", Catalogo.CHICO.barra(3))
+    }
+
+    @Test
+    fun elModoPrecisoNoTiraDados() {
+        assertEquals("el modo preciso debería ser determinista", 1, Modos.PRECISO.topK)
+        assertTrue(Modos.PRECISO.temperatura < Modos.CHARLA.temperatura)
+        assertTrue(Modos.TODOS.all { it.topK >= 1 })
     }
 
     @Test
@@ -841,7 +869,6 @@ class MotorTest {
 
     @Test
     fun elCatalogoTieneOrigenesDeRespaldo() {
-        assertEquals(3, Catalogo.MODELOS.size)
         for (modelo in Catalogo.MODELOS) {
             assertTrue("«${modelo.nombre}» tiene un solo origen", modelo.origenes.size >= 2)
             assertTrue(modelo.origenes.all { it.archivo.endsWith(".gguf") })

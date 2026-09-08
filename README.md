@@ -35,10 +35,21 @@ No viene dentro del APK: son cientos de megas y no todos quieren el mismo
 compromiso. Se elige y se descarga desde la app (botón del modelo, arriba a la
 derecha), una sola vez.
 
-| Modelo | Peso | RAM | Cómo va |
-|---|---|---|---|
-| **Qwen3 0.6B** | ~400 MB | 3 GB | Rápido en cualquier teléfono. Escribe bien, se equivoca seguido en datos. |
-| **Qwen3 1.7B** | ~1.1 GB | 6 GB | Más coherente y con más conocimiento propio. Lento y calienta en teléfonos modestos. |
+| Modelo | Familia | Peso | RAM | Precisión | Velocidad |
+|---|---|---|---|---|---|
+| Qwen3 0.6B | Qwen | 400 MB | 3 GB | ●○○ | ●●● |
+| Qwen3 0.6B alta fidelidad | Qwen | 700 MB | 4 GB | ●●○ | ●●● |
+| Gemma 3 1B | Gemma | 800 MB | 4 GB | ●●○ | ●●● |
+| Llama 3.2 1B | Llama | 810 MB | 4 GB | ●●○ | ●●● |
+| Qwen3 1.7B | Qwen | 1,1 GB | 6 GB | ●●○ | ●●○ |
+| Llama 3.2 3B | Llama | 2,0 GB | 8 GB | ●●● | ●○○ |
+| Qwen3 4B | Qwen | 2,5 GB | 8 GB | ●●● | ●○○ |
+| Gemma 3 4B | Gemma | 2,5 GB | 8 GB | ●●● | ●○○ |
+
+La versión **alta fidelidad** del modelo chico es el mismo modelo comprimido con
+menos pérdida (Q8 en lugar de Q4). En modelos tan chicos la compresión duele
+mucho más que en los grandes, así que ese medio giga extra compra bastante
+precisión sin costar velocidad.
 
 También podés **importar cualquier .gguf** que ya tengas: la app lo copia y lo usa.
 

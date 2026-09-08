@@ -69,7 +69,7 @@ class Asistente(
         }
 
         // 3. Lo que Rama ya sabe de su propia base.
-        val contextoLocal = rama.recuperar(pregunta, maximo = 2)
+        val contextoLocal = rama.recuperar(pregunta, maximo = 3)
         if (contextoLocal.isNotEmpty()) {
             paso("Base local", "${contextoLocal.size} fragmentos de mi base se parecen a tu pregunta")
         }
@@ -116,6 +116,7 @@ class Asistente(
             maxTokens = modo.maxTokens,
             temperatura = modo.temperatura,
             topP = modo.topP,
+            topK = modo.topK,
         ) { fragmento ->
             val visible = filtro.procesar(fragmento)
             if (visible.isNotEmpty()) {

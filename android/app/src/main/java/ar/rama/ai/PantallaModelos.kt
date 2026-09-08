@@ -90,7 +90,9 @@ class PantallaModelos(
             TextView(actividad).estilo(13f, Paleta.TENUE).apply {
                 text = "Rama genera sus respuestas con un modelo que corre acá adentro, " +
                     "sin pasar por la IA de nadie. Los pesos se bajan una vez y quedan en " +
-                    "el teléfono. Cuanto más grande, mejor escribe y más lento va."
+                    "el teléfono.\n\nEstán ordenados del más liviano al más capaz. El canje " +
+                    "es siempre el mismo: más tamaño es más precisión y menos velocidad. " +
+                    "Si dudás, empezá por uno de 1 GB."
                 setPadding(0, 0, 0, actividad.dp(14f))
             }
         )
@@ -181,9 +183,20 @@ class PantallaModelos(
 
         tarjeta.addView(
             TextView(actividad).estilo(12f, Paleta.TENUE, monoespaciada = true).apply {
-                val peso = "%.0f MB".format(modelo.bytesAproximados / 1024.0 / 1024.0)
-                text = "$peso · necesita ~${modelo.ramRecomendada} de RAM"
+                val peso = if (modelo.bytesAproximados >= 1024L * 1024 * 1024) {
+                    "%.1f GB".format(modelo.bytesAproximados / 1024.0 / 1024 / 1024)
+                } else {
+                    "%.0f MB".format(modelo.bytesAproximados / 1024.0 / 1024)
+                }
+                text = "${modelo.familia} · $peso · necesita ~${modelo.ramRecomendada} de RAM"
                 setPadding(0, actividad.dp(3f), 0, 0)
+            }
+        )
+        tarjeta.addView(
+            TextView(actividad).estilo(12f, Paleta.ACENTO, monoespaciada = true).apply {
+                text = "precisión ${modelo.barra(modelo.precision)}   " +
+                    "velocidad ${modelo.barra(modelo.velocidad)}"
+                setPadding(0, actividad.dp(5f), 0, 0)
             }
         )
         tarjeta.addView(

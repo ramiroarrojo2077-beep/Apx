@@ -14,6 +14,13 @@ data class Modo(
     val instruccion: String,
     val temperatura: Float,
     val topP: Float,
+    /**
+     * Cuántas palabras candidatas considera en cada paso.
+     *
+     * Con 1 el modelo deja de tirar dados: siempre elige la más probable. Es
+     * lo más preciso que se le puede pedir, a costa de sonar más plano.
+     */
+    val topK: Int,
     val maxTokens: Int,
     val buscaEnWeb: Boolean,
 )
@@ -48,6 +55,7 @@ object Modos {
             "oraciones salvo que el tema pida más.",
         temperatura = 0.7f,
         topP = 0.95f,
+        topK = 40,
         maxTokens = 320,
         buscaEnWeb = true,
     )
@@ -56,11 +64,13 @@ object Modos {
         id = "preciso",
         nombre = "Preciso",
         icono = "🎯",
-        descripcion = "Va al dato. Se calla cuando no sabe y busca en la web más seguido.",
+        descripcion = "Va al dato. No tira dados al elegir palabras, así que repite " +
+            "la misma respuesta ante la misma pregunta.",
         instruccion = "Contestá de forma factual y corta. No adornes. Si no estás " +
             "seguro de un dato, decí que no lo sabés en vez de aproximar.",
-        temperatura = 0.2f,
-        topP = 0.9f,
+        temperatura = 0.15f,
+        topP = 0.85f,
+        topK = 1,
         maxTokens = 280,
         buscaEnWeb = true,
     )
@@ -75,6 +85,7 @@ object Modos {
             "llano, sin tecnicismos innecesarios.",
         temperatura = 0.5f,
         topP = 0.95f,
+        topK = 30,
         maxTokens = 700,
         buscaEnWeb = true,
     )
@@ -89,6 +100,7 @@ object Modos {
             "por un hecho real seguí sin inventarlo.",
         temperatura = 1.0f,
         topP = 0.98f,
+        topK = 60,
         maxTokens = 700,
         buscaEnWeb = false,
     )
@@ -102,6 +114,7 @@ object Modos {
             "sin cierre, sin repetir la pregunta. Sólo la respuesta.",
         temperatura = 0.4f,
         topP = 0.9f,
+        topK = 20,
         maxTokens = 120,
         buscaEnWeb = true,
     )

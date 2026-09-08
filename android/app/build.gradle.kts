@@ -10,6 +10,7 @@ val assetsGenerados = layout.buildDirectory.dir("generated/assets")
 
 val sincronizarConocimiento by tasks.registering(Copy::class) {
     from(rootProject.file("../data/conocimiento.json"))
+    from(rootProject.file("../data/datos.json"))
     into(assetsGenerados)
 }
 

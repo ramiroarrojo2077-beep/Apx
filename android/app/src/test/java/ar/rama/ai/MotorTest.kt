@@ -6,6 +6,7 @@ import ar.rama.ai.motor.Buscador
 import ar.rama.ai.motor.Catalogo
 import ar.rama.ai.motor.Conversaciones
 import ar.rama.ai.motor.Descargador
+import ar.rama.ai.motor.Enciclopedia
 import ar.rama.ai.motor.FiltroPensamiento
 import ar.rama.ai.motor.Modos
 import ar.rama.ai.motor.Generador
@@ -483,12 +484,12 @@ class MotorTest {
     // ------------------------------------------------- modelo y descarga
 
     @Test
-    fun elCatalogoOfreceLosDosModelos() {
-        assertEquals(2, Catalogo.MODELOS.size)
+    fun elCatalogoOfreceVariosModelos() {
+        assertTrue("hacen falta al menos tres opciones", Catalogo.MODELOS.size >= 3)
         assertNotNull(Catalogo.porId("qwen3-0.6b"))
         assertNotNull(Catalogo.porId("qwen3-1.7b"))
         assertTrue(Catalogo.MODELOS.all { it.repositorio.isNotBlank() && it.archivo.endsWith(".gguf") })
-        assertTrue(Catalogo.MODELOS[0].bytesAproximados < Catalogo.MODELOS[1].bytesAproximados)
+        assertTrue(Catalogo.CHICO.bytesAproximados < Catalogo.MEDIANO.bytesAproximados)
     }
 
     @Test
@@ -775,6 +776,76 @@ class MotorTest {
         assertTrue(PantallaChats.cuandoFue(ahora - 120 * minuto, ahora).startsWith("hoy "))
         assertEquals("ayer", PantallaChats.cuandoFue(ahora - 26 * 60 * minuto, ahora))
         assertTrue(PantallaChats.cuandoFue(ahora - 3 * 24 * 60 * minuto, ahora).contains("días"))
+    }
+
+    // -------------------------------------------------- enciclopedia
+
+    private fun enciclopedia(): Enciclopedia {
+        val candidatos = listOf("../../data/datos.json", "data/datos.json")
+        val archivo = candidatos.map { File(it) }.firstOrNull { it.exists() }
+            ?: throw IllegalStateException("no encuentro datos.json")
+        return Enciclopedia(archivo.readText())
+    }
+
+    @Test
+    fun laEnciclopediaTieneCientosDeTemas() {
+        assertTrue("muy pocos temas: ${enciclopedia().cantidad}", enciclopedia().cantidad > 500)
+    }
+
+    @Test
+    fun encuentraPorDistintasFormasDePreguntar() {
+        val enci = enciclopedia()
+        assertNotNull(enci.buscar("qué es la fotosíntesis"))
+        assertNotNull(enci.buscar("hablame de la luna"))
+        assertNotNull(enci.buscar("para qué sirve el hígado"))
+        assertNotNull(enci.buscar("fotosíntesis"))
+        assertNotNull(enci.buscar("¿Qué es el oro?"))
+    }
+
+    @Test
+    fun encuentraPersonasPorElApellido() {
+        val enci = enciclopedia()
+        val einstein = enci.buscar("quién fue Einstein")
+        assertNotNull("no encontró a Einstein", einstein)
+        assertTrue(einstein!!.contains("relatividad"))
+        assertNotNull(enci.buscar("quién es Messi"))
+    }
+
+    @Test
+    fun toleraSingularYPlural() {
+        val enci = enciclopedia()
+        assertNotNull(enci.buscar("qué son los pulpos"))
+        assertNotNull(enci.buscar("qué es una abeja"))
+    }
+
+    @Test
+    fun noInventaTemasQueNoTiene() {
+        assertNull(enciclopedia().buscar("qué es el zurumbático desatado"))
+    }
+
+    @Test
+    fun extraeElSujetoDeLaPregunta() {
+        assertEquals("fotosintesis", Enciclopedia.sujetoDe("¿Qué es la fotosíntesis?"))
+        assertEquals("einstein", Enciclopedia.sujetoDe("quién fue Einstein"))
+        assertEquals("higado", Enciclopedia.sujetoDe("para qué sirve el hígado"))
+        // Una frase larga sin forma de pregunta no es un tema.
+        assertNull(Enciclopedia.sujetoDe("che contame cualquier cosa que se te ocurra ahora mismo"))
+    }
+
+    @Test
+    fun unaEnciclopediaRotaNoRompeNada() {
+        val rota = Enciclopedia("{esto no es json")
+        assertEquals(0, rota.cantidad)
+        assertNull(rota.buscar("qué es la fotosíntesis"))
+    }
+
+    @Test
+    fun elCatalogoTieneOrigenesDeRespaldo() {
+        assertEquals(3, Catalogo.MODELOS.size)
+        for (modelo in Catalogo.MODELOS) {
+            assertTrue("«${modelo.nombre}» tiene un solo origen", modelo.origenes.size >= 2)
+            assertTrue(modelo.origenes.all { it.archivo.endsWith(".gguf") })
+        }
     }
 
     // ------------------------------------------------------ modo pensar

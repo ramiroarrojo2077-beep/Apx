@@ -50,6 +50,18 @@ object SkillsDatos {
         }
     }
 
+    // ------------------------------------------------------ enciclopedia
+
+    /**
+     * Miles de temas resueltos por búsqueda directa.
+     *
+     * Va después de las habilidades que calculan: si preguntás "cuánto es
+     * 2+2" queremos la cuenta, no la definición de la suma.
+     */
+    val enciclopedia: (String, Rama) -> String? = { texto, rama ->
+        rama.enciclopedia?.buscar(texto)
+    }
+
     // ------------------------------------------- conversión de unidades
 
     /** Cada unidad se define por su equivalencia en la unidad base de su familia. */

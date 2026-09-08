@@ -33,7 +33,11 @@ class Rama(
     private val conocimientoJson: String,
     val memoria: Memoria = Memoria(),
     semilla: Long? = null,
+    enciclopediaJson: String? = null,
 ) {
+
+    /** Los miles de temas de búsqueda directa. Vacía si no se cargó el asset. */
+    val enciclopedia: Enciclopedia? = enciclopediaJson?.let { Enciclopedia(it) }
 
     val azar: Random = if (semilla == null) Random.Default else Random(semilla)
     private val vectorizador = Vectorizador()

@@ -174,13 +174,21 @@ class MainActivity : Activity() {
         }, ESPERA_ARRANQUE)
         enSegundoPlano("cargando mi base de conocimiento") {
             val conocimiento = assets.open("conocimiento.json").bufferedReader().use { it.readText() }
+            // La enciclopedia es opcional: si falta, Rama arranca igual.
+            val datos = try {
+                assets.open("datos.json").bufferedReader().use { it.readText() }
+            } catch (e: Exception) {
+                null
+            }
             val memoria = Memoria(AlmacenArchivo(File(filesDir, "aprendido.json")))
-            val motor = Rama(conocimiento, memoria)
+            val motor = Rama(conocimiento, memoria, enciclopediaJson = datos)
             val ayudante = Asistente(motor)
             principal.post {
                 ayudante.modo = modoActual
                 asistente = ayudante
-                subtitulo.text = "${motor.totalIntenciones} temas · ${motor.totalPatrones} patrones"
+                val enciclopedia = motor.enciclopedia?.cantidad ?: 0
+                subtitulo.text = "${motor.totalIntenciones + enciclopedia} temas · " +
+                    "${motor.totalPatrones} patrones"
 
                 // Si veníamos de una conversación, se retoma donde quedó.
                 val guardado = conversaciones.cargar(chatActual)

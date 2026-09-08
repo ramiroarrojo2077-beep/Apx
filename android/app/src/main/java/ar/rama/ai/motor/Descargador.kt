@@ -42,8 +42,9 @@ class Descargador(private val destino: File) {
         } catch (e: Exception) {
             return ResultadoDescarga.Fallo("No pude averiguar dónde está el modelo: ${e.message}")
         } ?: return ResultadoDescarga.Fallo(
-            "No encontré el archivo ${modelo.archivo} en ${modelo.repositorio}. " +
-                "Podés bajar el .gguf a mano y elegirlo con «importar modelo»."
+            "No encontré el modelo en ninguno de los ${modelo.origenes.size} repositorios " +
+                "que conozco:\n\n${intentos.joinToString("\n")}\n\n" +
+                "Bajá el .gguf desde el navegador y elegilo con «Importar un .gguf»."
         )
 
         val parcial = File(destino.parentFile, destino.name + ".parcial")
@@ -103,35 +104,67 @@ class Descargador(private val destino: File) {
         }
     }
 
+    /** Lo que se intentó y por qué falló, para poder contarlo en pantalla. */
+    var intentos: MutableList<String> = mutableListOf()
+        private set
+
     /**
-     * La URL directa primero; si no está, le preguntamos al repositorio qué
-     * archivos tiene. Así un cambio de nombre del archivo no rompe la app.
+     * Busca el archivo en cada origen conocido y, si ninguno responde, le
+     * pregunta a cada repositorio qué archivos tiene.
+     *
+     * Con un solo origen fijo, cualquier renombrado deja la app sin poder
+     * descargar. Acá hay que quedarse sin todos los caminos para fallar.
      */
     private fun resolverUrl(modelo: ModeloDisponible): String? {
-        val directa = urlDeArchivo(modelo.repositorio, modelo.archivo)
-        if (existe(directa)) return directa
+        intentos = mutableListOf()
 
-        val listado = URL("https://huggingface.co/api/models/${modelo.repositorio}")
+        for (origen in modelo.origenes) {
+            val directa = urlDeArchivo(origen.repositorio, origen.archivo)
+            if (existe(directa)) return directa
+            intentos.add("${origen.repositorio}/${origen.archivo}: no está")
+        }
+
+        for (origen in modelo.origenes) {
+            val encontrado = buscarEnRepositorio(origen.repositorio)
+            if (encontrado != null) return encontrado
+            intentos.add("${origen.repositorio}: sin .gguf utilizable")
+        }
+        return null
+    }
+
+    /** Le pregunta al repositorio qué archivos tiene y elige el más apropiado. */
+    private fun buscarEnRepositorio(repositorio: String): String? {
         val json = try {
-            (listado.openConnection() as HttpURLConnection).let { conexion ->
-                conexion.connectTimeout = 20_000
-                conexion.readTimeout = 20_000
-                conexion.inputStream.bufferedReader().use { it.readText() }
-            }
+            val conexion = URL("https://huggingface.co/api/models/$repositorio")
+                .openConnection() as HttpURLConnection
+            conexion.connectTimeout = 20_000
+            conexion.readTimeout = 20_000
+            conexion.setRequestProperty("User-Agent", "RamaAI")
+            if (conexion.responseCode !in 200..299) return null
+            conexion.inputStream.bufferedReader().use { it.readText() }
         } catch (e: IOException) {
+            return null
+        } catch (e: Exception) {
             return null
         }
 
-        val archivos = JSONObject(json).optJSONArray("siblings") ?: return null
+        val archivos = try {
+            JSONObject(json).optJSONArray("siblings") ?: return null
+        } catch (e: Exception) {
+            return null
+        }
         val nombres = (0 until archivos.length())
             .mapNotNull { archivos.optJSONObject(it)?.optString("rfilename") }
             .filter { it.endsWith(".gguf", ignoreCase = true) }
+            // Los modelos partidos en varios archivos no los sabemos juntar.
+            .filterNot { it.contains("-of-") }
 
         val elegido = nombres.firstOrNull { it.contains("Q4_K_M", ignoreCase = true) }
             ?: nombres.firstOrNull { it.contains("Q4", ignoreCase = true) }
+            ?: nombres.firstOrNull { it.contains("Q5", ignoreCase = true) }
             ?: nombres.firstOrNull()
             ?: return null
-        return urlDeArchivo(modelo.repositorio, elegido)
+        return urlDeArchivo(repositorio, elegido)
     }
 
     private fun urlDeArchivo(repositorio: String, archivo: String) =

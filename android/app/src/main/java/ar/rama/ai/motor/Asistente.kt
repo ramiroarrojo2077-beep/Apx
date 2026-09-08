@@ -91,7 +91,12 @@ class Asistente(
         val motor = generador
         if (motor == null) {
             paso("Sin modelo", "no hay modelo cargado: respondo con la base y las habilidades")
-            val respaldo = datoExacto ?: rama.responder(pregunta).texto
+            val local = if (datoExacto != null) null else rama.responder(pregunta)
+            // Si ni la base ni las habilidades saben, el problema no es la
+            // pregunta: es que falta lo único que puede responder cualquier cosa.
+            val respaldo = datoExacto
+                ?: local?.takeIf { it.fuente != "fallback" }?.texto
+                ?: SIN_MODELO
             alFragmento(respaldo)
             return RespuestaAsistente(respaldo, "sin-modelo", pasos, resultados)
         }
@@ -191,6 +196,14 @@ class Asistente(
     companion object {
         const val TURNOS_DE_HISTORIAL = 6
         const val SIN_RAZONAR = "/no_think"
+
+        val SIN_MODELO = """
+            Para contestar esto necesito el modelo de lenguaje, y todavía no hay ninguno cargado.
+
+            Tocá el botón del modelo, arriba a la derecha, y descargá uno. Con el modelo puedo
+            responder cualquier cosa que me preguntes; sin él sólo sé lo que tengo en mi base
+            y lo que calculan mis habilidades, que es exacto pero acotado.
+        """.trimIndent()
 
         private val PIDE_BUSCAR = Regex(
             "\\b(busca|buscar|buscame|googlea|fijate en internet|en la web|en internet)\\b"

@@ -303,6 +303,7 @@ object Skills {
         "geografía" to SkillsDatos.geografia,
         "conversión de unidades" to SkillsDatos.conversiones,
         "operaciones de texto" to SkillsDatos.operacionesTexto,
+        "enciclopedia" to SkillsDatos.enciclopedia,
         "azar" to azar,
         "memoria de la charla" to memoriaConversacion,
         "calculadora" to calculadora,

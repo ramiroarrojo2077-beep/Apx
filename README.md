@@ -74,6 +74,24 @@ El filtro trabaja sobre texto que llega de a pedacitos, así que aguanta que la
 etiqueta venga partida entre dos tokens (`<th` + `ink>`), que el modelo nunca
 la cierre, y que aparezca un `<` suelto en una fórmula.
 
+## La enciclopedia
+
+Además de la base conversacional, Rama trae **832 temas de búsqueda directa**:
+países, elementos químicos, ciudades, animales, historia, personajes, inventos,
+ciencia, siglas. No pasan por TF-IDF sino por una tabla indexada, así que no
+cuestan nada al arrancar y escalan a decenas de miles.
+
+Entiende varias formas de preguntar lo mismo — «qué es la fotosíntesis»,
+«hablame de la Luna», «para qué sirve el hígado», o el tema escrito solo — y
+encuentra personas por el apellido: «quién fue Einstein» llega a *Albert
+Einstein*.
+
+**Por qué no son 5.000.** El TF-IDF no aguanta esa escala en un teléfono: medí
+3,3 s de indexado y 845.000 rasgos en memoria para 5.000 temas, que en un
+teléfono son 10-15 segundos de arranque. Por eso la enciclopedia usa búsqueda
+directa. Y aun con 50.000 temas escritos a mano, una tabla nunca responde
+*todo*: lo que responde cualquier cosa es el modelo.
+
 ## Chats guardados
 
 Cada conversación se guarda sola apenas escribís, sin botón de guardar. El

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .enciclopedia import Enciclopedia
 from .memoria import Memoria
 from .skills import COMANDOS, SKILLS
 from .texto import normalizar, tokenizar
@@ -80,6 +81,7 @@ class Rama:
         self.intenciones: dict[str, list[str]] = {}
         self.entradas: list[_Entrada] = []
         self.vectorizador = Vectorizador()
+        self.enciclopedia = Enciclopedia()
         self.capitales: dict[str, tuple[str, str]] = {}
         self.alias: dict[str, str] = {}
         self._ultima_respuesta: dict[str, int] = {}

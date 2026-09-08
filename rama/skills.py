@@ -479,6 +479,15 @@ def skill_calendario(texto: str, ctx) -> str | None:
     return None
 
 
+# --------------------------------------------------------------- enciclopedia
+
+
+def skill_enciclopedia(texto: str, ctx) -> str | None:
+    """Miles de temas resueltos por búsqueda directa, sin similitud."""
+    enciclopedia = getattr(ctx, "enciclopedia", None)
+    return enciclopedia.buscar(texto) if enciclopedia else None
+
+
 # ----------------------------------------------------- operaciones de texto
 
 _CUANTAS_LETRAS = re.compile(r"cuantas letras tiene (?:la palabra )?[«\"']?(.+?)[»\"']?$", re.IGNORECASE)
@@ -524,6 +533,7 @@ SKILLS = (
     skill_geografia,
     skill_conversiones,
     skill_texto,
+    skill_enciclopedia,
     skill_azar,
     skill_memoria_conversacion,
     skill_calculadora,

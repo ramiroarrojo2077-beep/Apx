@@ -36,6 +36,7 @@ import ar.rama.ai.motor.PasoAsistente
 import ar.rama.ai.motor.Conversaciones
 import ar.rama.ai.motor.Descargador
 import ar.rama.ai.motor.Rama
+import ar.rama.ai.motor.Respaldo
 import ar.rama.ai.motor.Resultado
 import ar.rama.ai.motor.Texto
 import java.io.File
@@ -513,6 +514,7 @@ class MainActivity : Activity() {
                 burbuja.text = texto
                 historial.add(Mensaje("assistant", texto))
                 bloque?.cerrar(respuesta.pasos.size)
+                selloRespaldo(respuesta.respaldo)
                 if (respuesta.fuentesWeb.isNotEmpty()) fichaFuentes(respuesta.fuentesWeb)
                 guardarChat()
                 alFinal()
@@ -530,6 +532,44 @@ class MainActivity : Activity() {
         historial.add(Mensaje("user", pregunta))
         historial.add(Mensaje("assistant", adjunto.resumen))
         guardarChat()
+    }
+
+    /**
+     * Debajo de cada respuesta, con qué se respaldó.
+     *
+     * Un modelo chico escribe con la misma seguridad un dato verificado y una
+     * invención. Esto es lo que le devuelve al usuario la posibilidad de
+     * distinguirlas de un vistazo.
+     */
+    private fun selloRespaldo(respaldo: Respaldo) {
+        val color = when (respaldo) {
+            Respaldo.CALCULO -> Paleta.ACENTO
+            Respaldo.WEB -> Paleta.ACENTO
+            Respaldo.BASE -> Paleta.TENUE
+            Respaldo.SOLO_MODELO -> 0xFFFFB74D.toInt()
+        }
+        val icono = when (respaldo) {
+            Respaldo.CALCULO -> "🧮"
+            Respaldo.WEB -> "🌐"
+            Respaldo.BASE -> "📗"
+            Respaldo.SOLO_MODELO -> "⚠"
+        }
+        val sello = TextView(this).estilo(11.5f, color).apply {
+            text = "$icono  ${respaldo.etiqueta}"
+            padding(dp(9f), dp(4f))
+            background = fondoRedondeado(Paleta.PANEL, dp(9f).toFloat(), Paleta.BORDE, dp(1f))
+            setOnClickListener { avisar(respaldo.explicacion) }
+            contentDescription = respaldo.explicacion
+        }
+        val parametros = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            gravity = Gravity.START
+            leftMargin = dp(4f)
+            bottomMargin = dp(6f)
+        }
+        contenedorChat.addView(sello, parametros)
+        alFinal()
     }
 
     /** Las fuentes que consultó, como tarjeta aparte y tocable. */

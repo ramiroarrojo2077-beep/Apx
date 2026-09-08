@@ -3,12 +3,27 @@ package ar.rama.ai.motor
 /** Un paso del razonamiento del asistente, para el modo pensar. */
 data class PasoAsistente(val titulo: String, val detalle: String)
 
+/**
+ * Con qué se respaldó la respuesta.
+ *
+ * Es la diferencia entre un dato y una suposición del modelo, y el usuario
+ * tiene derecho a verla: sin esto, las dos llegan escritas con la misma
+ * seguridad.
+ */
+enum class Respaldo(val etiqueta: String, val explicacion: String) {
+    CALCULO("dato calculado", "lo resolvió una habilidad, no el modelo: es exacto"),
+    WEB("con fuentes web", "está respaldado por las páginas que consulté"),
+    BASE("de mi base", "sale de mi enciclopedia, escrita a mano"),
+    SOLO_MODELO("sin respaldo", "sale sólo de la memoria del modelo: puede estar inventado"),
+}
+
 /** Lo que termina contestando, con de dónde salió cada cosa. */
 data class RespuestaAsistente(
     val texto: String,
     val fuente: String,
     val pasos: List<PasoAsistente>,
     val fuentesWeb: List<Resultado> = emptyList(),
+    val respaldo: Respaldo = Respaldo.SOLO_MODELO,
 )
 
 /**
@@ -53,7 +68,7 @@ class Asistente(
                 paso("Comando", "«$nombre»: es una orden directa, no hace falta el modelo")
                 alFragmento(salida)
                 rama.memoria.registrarTurno("rama", salida)
-                return RespuestaAsistente(salida, "comando", pasos)
+                return RespuestaAsistente(salida, "comando", pasos, emptyList(), Respaldo.CALCULO)
             }
         }
 
@@ -98,7 +113,10 @@ class Asistente(
                 ?: local?.takeIf { it.fuente != "fallback" }?.texto
                 ?: SIN_MODELO
             alFragmento(respaldo)
-            return RespuestaAsistente(respaldo, "sin-modelo", pasos, resultados)
+            return RespuestaAsistente(
+                respaldo, "sin-modelo", pasos, resultados,
+                if (datoExacto != null) Respaldo.CALCULO else Respaldo.BASE,
+            )
         }
 
         val conversacion = armarConversacion(pregunta, historial, datoExacto, contextoLocal, resultados)
@@ -137,8 +155,15 @@ class Asistente(
         val texto = construida.toString().trim().ifEmpty {
             datoExacto ?: "Me quedé sin palabras. Probá preguntarlo de otra forma."
         }
+        val respaldo = when {
+            datoExacto != null -> Respaldo.CALCULO
+            resultados.isNotEmpty() -> Respaldo.WEB
+            contextoLocal.isNotEmpty() -> Respaldo.BASE
+            else -> Respaldo.SOLO_MODELO
+        }
+        paso("Respaldo", "${respaldo.etiqueta}: ${respaldo.explicacion}")
         rama.memoria.registrarTurno("rama", texto)
-        return RespuestaAsistente(texto, "modelo", pasos, resultados)
+        return RespuestaAsistente(texto, "modelo", pasos, resultados, respaldo)
     }
 
     fun cancelar() {
@@ -169,7 +194,13 @@ class Asistente(
             }
         }
 
-        val mensajes = mutableListOf(Mensaje("system", Modos.sistema(modo)))
+        val sistema = StringBuilder(Modos.sistema(modo))
+        if (contexto.isEmpty()) {
+            // Sin fuentes, la única salida honesta es admitir la duda. Decírselo
+            // explícitamente reduce bastante las invenciones con seguridad.
+            sistema.append("\n\n").append(SIN_FUENTES)
+        }
+        val mensajes = mutableListOf(Mensaje("system", sistema.toString()))
         // Sólo los últimos turnos: el contexto del modelo es chico y caro.
         historial.takeLast(TURNOS_DE_HISTORIAL).forEach { mensajes.add(it) }
 
@@ -181,7 +212,13 @@ class Asistente(
         return mensajes
     }
 
-    /** Decide si vale la pena salir a internet, y por qué. */
+    /**
+     * Decide si vale la pena salir a internet, y por qué.
+     *
+     * Es deliberadamente generoso con las preguntas factuales: un modelo chico
+     * inventa fechas y nombres con total seguridad, y traerle la fuente es lo
+     * único que lo frena de verdad.
+     */
     fun motivoParaBuscar(pregunta: String, sinContextoLocal: Boolean, hayDatoExacto: Boolean): String? {
         if (!buscarEnWeb || !modo.buscaEnWeb) return null
         val plano = Texto.normalizar(pregunta)
@@ -189,14 +226,29 @@ class Asistente(
             PIDE_BUSCAR.containsMatchIn(plano) -> "me lo pediste explícitamente"
             hayDatoExacto -> null  // ya tenemos la respuesta exacta, no gastemos datos
             NECESITA_ACTUALIDAD.containsMatchIn(plano) -> "la pregunta depende de datos actuales"
+            esFactual(plano) -> "es una pregunta de datos y prefiero traer la fuente antes que confiar en la memoria del modelo"
             sinContextoLocal && plano.split(" ").size >= 3 -> "no tengo nada parecido en mi base"
             else -> null
         }
     }
 
+    /** Preguntas que piden un hecho, no una charla ni una opinión. */
+    fun esFactual(plano: String): Boolean {
+        if (CHARLA.containsMatchIn(plano)) return false
+        return PIDE_HECHO.containsMatchIn(plano) && plano.split(" ").size >= 3
+    }
+
     companion object {
         const val TURNOS_DE_HISTORIAL = 6
         const val SIN_RAZONAR = "/no_think"
+
+        val SIN_FUENTES = """
+            ATENCIÓN: para esta pregunta no tenés ninguna fuente ni dato verificado.
+            Respondé sólo lo que sepas con seguridad. Si la respuesta necesita una fecha,
+            una cifra, un nombre propio o un hecho concreto que no recordás con certeza,
+            decí que no estás seguro en lugar de arriesgar. Es preferible una respuesta
+            corta y honesta que una completa e inventada.
+        """.trimIndent()
 
         val SIN_MODELO = """
             Para contestar esto necesito el modelo de lenguaje, y todavía no hay ninguno cargado.
@@ -209,6 +261,20 @@ class Asistente(
         private val PIDE_BUSCAR = Regex(
             "\\b(busca|buscar|buscame|googlea|fijate en internet|en la web|en internet)\\b"
         )
+        /** Fórmulas con las que se pide un hecho concreto. */
+        private val PIDE_HECHO = Regex(
+            "\\b(quien|quienes|cuando|donde|cuantos?|cuantas?|cual|cuales|que año|en que año|" +
+                "que fecha|de que|por que|como se llama|nombre de|autor de|invento|descubrio|" +
+                "gano|fundo|escribio|nacio|murio|capital de|poblacion|altura de|distancia)\\b"
+        )
+
+        /** Lo que claramente no es una consulta de datos. */
+        private val CHARLA = Regex(
+            "\\b(hola|buenas|gracias|chau|como estas|como andas|contame un chiste|" +
+                "escribi|escribime|inventa|imagina|un cuento|un poema|una historia|" +
+                "que opinas|que te parece|ayudame a|traduci|resumi)\\b"
+        )
+
         private val NECESITA_ACTUALIDAD = Regex(
             "\\b(hoy|ahora|actual|actualmente|ultimo|ultima|reciente|noticias?|precio|" +
                 "cotizacion|dolar|quien es|quien gano|quien fue|cuando (sale|salio|es)|" +

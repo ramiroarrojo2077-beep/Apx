@@ -10,9 +10,9 @@ data class ModeloDisponible(
     val familia: String,
     val bytesAproximados: Long,
     val ramRecomendada: String,
-    /** De 1 a 3: cuán seguido acierta en datos y sigue instrucciones. */
+    /** De 1 a 4: cuán seguido acierta en datos y sigue instrucciones. */
     val precision: Int,
-    /** De 1 a 3: qué tan rápido responde en un teléfono común. */
+    /** De 1 a 4: qué tan rápido responde en un teléfono común. */
     val velocidad: Int,
     val descripcion: String,
     /**
@@ -26,8 +26,12 @@ data class ModeloDisponible(
     val repositorio: String get() = origenes.first().repositorio
     val archivo: String get() = origenes.first().archivo
 
-    /** "●●○" — para mostrar la relación de un vistazo. */
-    fun barra(valor: Int): String = "●".repeat(valor) + "○".repeat(3 - valor)
+    /** "●●○○" — para mostrar la relación de un vistazo. */
+    fun barra(valor: Int): String = "●".repeat(valor) + "○".repeat(ESCALA - valor)
+
+    companion object {
+        const val ESCALA = 4
+    }
 }
 
 /**
@@ -53,7 +57,7 @@ object Catalogo {
         bytesAproximados = 400L * 1024 * 1024,
         ramRecomendada = "3 GB",
         precision = 1,
-        velocidad = 3,
+        velocidad = 4,
         descripcion = "El más liviano y rápido: anda en cualquier teléfono y contesta en " +
             "pocos segundos. Escribe bien, pero se equivoca seguido en datos.",
         origenes = qwen("0.6B", "Qwen3-0.6B-Q4_K_M.gguf"),
@@ -66,7 +70,7 @@ object Catalogo {
         bytesAproximados = 700L * 1024 * 1024,
         ramRecomendada = "4 GB",
         precision = 2,
-        velocidad = 3,
+        velocidad = 4,
         descripcion = "El mismo modelo chico pero comprimido con mucha menos pérdida (Q8 " +
             "en vez de Q4). En modelos tan chicos la compresión duele más que en los " +
             "grandes: esto lo mejora bastante y sigue siendo rápido.",
@@ -80,7 +84,7 @@ object Catalogo {
         bytesAproximados = 800L * 1024 * 1024,
         ramRecomendada = "4 GB",
         precision = 2,
-        velocidad = 3,
+        velocidad = 4,
         descripcion = "De la familia de Google. Buen español y respuestas ordenadas, " +
             "con un tamaño todavía cómodo.",
         origenes = listOf(
@@ -97,7 +101,7 @@ object Catalogo {
         bytesAproximados = 810L * 1024 * 1024,
         ramRecomendada = "4 GB",
         precision = 2,
-        velocidad = 3,
+        velocidad = 4,
         descripcion = "De la familia de Meta. Escribe con naturalidad en español y es " +
             "una buena alternativa si los Qwen te fallan.",
         origenes = listOf(
@@ -114,7 +118,7 @@ object Catalogo {
         bytesAproximados = 1150L * 1024 * 1024,
         ramRecomendada = "6 GB",
         precision = 2,
-        velocidad = 2,
+        velocidad = 3,
         descripcion = "Bastante más coherente y con más conocimiento propio que los de " +
             "menos de un giga. Es el punto de equilibrio para un teléfono actual.",
         origenes = qwen("1.7B", "Qwen3-1.7B-Q4_K_M.gguf"),
@@ -127,7 +131,7 @@ object Catalogo {
         bytesAproximados = 2020L * 1024 * 1024,
         ramRecomendada = "8 GB",
         precision = 3,
-        velocidad = 1,
+        velocidad = 2,
         descripcion = "Un salto real de calidad: razona mejor y se equivoca mucho menos. " +
             "Pide un teléfono holgado y tarda bastante por respuesta.",
         origenes = listOf(
@@ -144,7 +148,7 @@ object Catalogo {
         bytesAproximados = 2500L * 1024 * 1024,
         ramRecomendada = "8 GB",
         precision = 3,
-        velocidad = 1,
+        velocidad = 2,
         descripcion = "El más capaz de la lista: el que menos inventa y mejor sigue " +
             "instrucciones. Sólo tiene sentido en un teléfono con memoria de sobra.",
         origenes = qwen("4B", "Qwen3-4B-Q4_K_M.gguf"),
@@ -157,7 +161,7 @@ object Catalogo {
         bytesAproximados = 2500L * 1024 * 1024,
         ramRecomendada = "8 GB",
         precision = 3,
-        velocidad = 1,
+        velocidad = 2,
         descripcion = "La alternativa grande de Google, muy sólida en español. " +
             "Mismas exigencias que el Qwen 4B.",
         origenes = listOf(
@@ -167,9 +171,59 @@ object Catalogo {
         ),
     )
 
+    val QWEN_8B = ModeloDisponible(
+        id = "qwen3-8b",
+        nombre = "Qwen3 8B",
+        familia = "Qwen",
+        bytesAproximados = 5000L * 1024 * 1024,
+        ramRecomendada = "12 GB",
+        precision = 4,
+        velocidad = 1,
+        descripcion = "Lo más capaz que entra en un teléfono. Razona de verdad y casi no " +
+            "inventa. Necesita un equipo tope de gama y va a tardar bastante por " +
+            "respuesta: pensalo como una consulta, no como un chat rápido.",
+        origenes = qwen("8B", "Qwen3-8B-Q4_K_M.gguf"),
+    )
+
+    val LLAMA_8B = ModeloDisponible(
+        id = "llama31-8b",
+        nombre = "Llama 3.1 8B",
+        familia = "Llama",
+        bytesAproximados = 4920L * 1024 * 1024,
+        ramRecomendada = "12 GB",
+        precision = 4,
+        velocidad = 1,
+        descripcion = "El grande de Meta, muy sólido en español y con bastante " +
+            "conocimiento propio. Mismas exigencias que el Qwen 8B.",
+        origenes = listOf(
+            Origen("bartowski/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"),
+            Origen("unsloth/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"),
+            Origen("hugging-quants/Meta-Llama-3.1-8B-Instruct-GGUF", "meta-llama-3.1-8b-instruct-q4_k_m.gguf"),
+        ),
+    )
+
+    val GEMMA_12B = ModeloDisponible(
+        id = "gemma3-12b",
+        nombre = "Gemma 3 12B",
+        familia = "Gemma",
+        bytesAproximados = 7300L * 1024 * 1024,
+        ramRecomendada = "16 GB",
+        precision = 4,
+        velocidad = 1,
+        descripcion = "El techo absoluto de lo que corre en un teléfono, y sólo en los " +
+            "de 16 GB. Si el tuyo no los tiene, Android va a cerrar la app al cargarlo: " +
+            "Rama te avisa antes de intentarlo.",
+        origenes = listOf(
+            Origen("ggml-org/gemma-3-12b-it-GGUF", "gemma-3-12b-it-Q4_K_M.gguf"),
+            Origen("unsloth/gemma-3-12b-it-GGUF", "gemma-3-12b-it-Q4_K_M.gguf"),
+            Origen("bartowski/google_gemma-3-12b-it-GGUF", "google_gemma-3-12b-it-Q4_K_M.gguf"),
+        ),
+    )
+
     /** Del más liviano al más capaz: el orden en que conviene decidir. */
     val MODELOS: List<ModeloDisponible> = listOf(
         QWEN_06_R, QWEN_06_PRECISO, GEMMA_1B, LLAMA_1B, QWEN_17, LLAMA_3B, QWEN_4B, GEMMA_4B,
+        LLAMA_8B, QWEN_8B, GEMMA_12B,
     )
 
     /** Compatibilidad con nombres viejos usados en el resto del código. */

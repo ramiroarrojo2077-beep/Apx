@@ -11,6 +11,7 @@ import ar.rama.ai.motor.FiltroPensamiento
 import ar.rama.ai.motor.Modos
 import ar.rama.ai.motor.Generador
 import ar.rama.ai.motor.Mensaje
+import ar.rama.ai.motor.Respaldo
 import ar.rama.ai.motor.Resultado
 import ar.rama.ai.motor.Calculadora
 import ar.rama.ai.motor.Corrector
@@ -410,8 +411,56 @@ class MotorTest {
             asistente.motivoParaBuscar("cual es el precio del dolar hoy", false, false))
         assertNull("no debe gastar datos si ya tiene el dato exacto",
             asistente.motivoParaBuscar("cuanto es 2 mas 2", false, true))
-        assertNull("no debe buscar lo que ya sabe",
-            asistente.motivoParaBuscar("que es python", false, false))
+    }
+
+    @Test
+    fun lasPreguntasDeDatosVanALaWeb() {
+        val asistente = nuevoAsistente()
+        // Un modelo chico inventa fechas y nombres: mejor traer la fuente.
+        assertNotNull(asistente.motivoParaBuscar("quien escribio el martin fierro", false, false))
+        assertNotNull(asistente.motivoParaBuscar("en que año se fundo la ciudad", false, false))
+        assertNotNull(asistente.motivoParaBuscar("cuantos habitantes tiene rosario", false, false))
+    }
+
+    @Test
+    fun laCharlaNoGastaDatos() {
+        val asistente = nuevoAsistente()
+        assertFalse(asistente.esFactual("hola como estas"))
+        assertFalse(asistente.esFactual("contame un chiste por favor"))
+        assertFalse(asistente.esFactual("escribi un cuento sobre un perro"))
+        assertTrue(asistente.esFactual("quien invento el telefono"))
+    }
+
+    @Test
+    fun elRespaldoDistingueDatoDeInvencion() {
+        // Cuatro niveles, y el peor tiene que avisar del riesgo.
+        assertEquals(4, Respaldo.values().size)
+        assertTrue(Respaldo.SOLO_MODELO.explicacion.contains("inventado"))
+        assertTrue(Respaldo.CALCULO.explicacion.contains("exacto"))
+        assertTrue(Respaldo.values().all { it.etiqueta.isNotBlank() })
+    }
+
+    @Test
+    fun sinFuentesSeLeAvisaAlModelo() {
+        val asistente = nuevoAsistente()
+        val aCiegas = asistente.armarConversacion("quien ganó en 1957", emptyList(), null, emptyList(), emptyList())
+        assertTrue("no le avisa que no tiene fuentes",
+            aCiegas.first().contenido.contains("no tenés ninguna fuente"))
+
+        val conDato = asistente.armarConversacion(
+            "cuánto es 2+2", emptyList(), "2+2 = 4", emptyList(), emptyList(),
+        )
+        assertFalse("no debería avisar cuando sí tiene un dato",
+            conDato.first().contenido.contains("no tenés ninguna fuente"))
+    }
+
+    @Test
+    fun hayModelosDeAltaGama() {
+        val potentes = Catalogo.MODELOS.filter { it.precision == 4 }
+        assertTrue("faltan modelos de máxima precisión", potentes.size >= 3)
+        assertTrue("el techo debería superar los 4 GB",
+            Catalogo.MODELOS.maxOf { it.bytesAproximados } > 4L * 1024 * 1024 * 1024)
+        assertTrue(Catalogo.MODELOS.size >= 11)
     }
 
     @Test
@@ -502,15 +551,15 @@ class MotorTest {
     fun hayVariasFamiliasYUnRangoDePrecision() {
         val familias = Catalogo.MODELOS.map { it.familia }.toSet()
         assertTrue("hace falta más de una familia: $familias", familias.size >= 3)
-        assertTrue(Catalogo.MODELOS.any { it.precision == 3 })
-        assertTrue(Catalogo.MODELOS.any { it.velocidad == 3 })
-        assertTrue(Catalogo.MODELOS.all { it.precision in 1..3 && it.velocidad in 1..3 })
+        assertTrue(Catalogo.MODELOS.any { it.precision == 4 })
+        assertTrue(Catalogo.MODELOS.any { it.velocidad == 4 })
+        assertTrue(Catalogo.MODELOS.all { it.precision in 1..4 && it.velocidad in 1..4 })
     }
 
     @Test
     fun laBarraMuestraElPuntaje() {
-        assertEquals("●●○", Catalogo.CHICO.barra(2))
-        assertEquals("●●●", Catalogo.CHICO.barra(3))
+        assertEquals("●●○○", Catalogo.CHICO.barra(2))
+        assertEquals("●●●●", Catalogo.CHICO.barra(4))
     }
 
     @Test

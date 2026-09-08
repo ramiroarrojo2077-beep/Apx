@@ -37,14 +37,17 @@ derecha), una sola vez.
 
 | Modelo | Familia | Peso | RAM | Precisión | Velocidad |
 |---|---|---|---|---|---|
-| Qwen3 0.6B | Qwen | 400 MB | 3 GB | ●○○ | ●●● |
-| Qwen3 0.6B alta fidelidad | Qwen | 700 MB | 4 GB | ●●○ | ●●● |
-| Gemma 3 1B | Gemma | 800 MB | 4 GB | ●●○ | ●●● |
-| Llama 3.2 1B | Llama | 810 MB | 4 GB | ●●○ | ●●● |
-| Qwen3 1.7B | Qwen | 1,1 GB | 6 GB | ●●○ | ●●○ |
-| Llama 3.2 3B | Llama | 2,0 GB | 8 GB | ●●● | ●○○ |
-| Qwen3 4B | Qwen | 2,5 GB | 8 GB | ●●● | ●○○ |
-| Gemma 3 4B | Gemma | 2,5 GB | 8 GB | ●●● | ●○○ |
+| Qwen3 0.6B | Qwen | 400 MB | 3 GB | ●○○○ | ●●●● |
+| Qwen3 0.6B alta fidelidad | Qwen | 700 MB | 4 GB | ●●○○ | ●●●● |
+| Gemma 3 1B | Gemma | 800 MB | 4 GB | ●●○○ | ●●●● |
+| Llama 3.2 1B | Llama | 810 MB | 4 GB | ●●○○ | ●●●● |
+| Qwen3 1.7B | Qwen | 1,1 GB | 6 GB | ●●○○ | ●●●○ |
+| Llama 3.2 3B | Llama | 2,0 GB | 8 GB | ●●●○ | ●●○○ |
+| Qwen3 4B | Qwen | 2,5 GB | 8 GB | ●●●○ | ●●○○ |
+| Gemma 3 4B | Gemma | 2,5 GB | 8 GB | ●●●○ | ●●○○ |
+| Llama 3.1 8B | Llama | 4,9 GB | 12 GB | ●●●● | ●○○○ |
+| Qwen3 8B | Qwen | 5,0 GB | 12 GB | ●●●● | ●○○○ |
+| Gemma 3 12B | Gemma | 7,3 GB | 16 GB | ●●●● | ●○○○ |
 
 La versión **alta fidelidad** del modelo chico es el mismo modelo comprimido con
 menos pérdida (Q8 en lugar de Q4). En modelos tan chicos la compresión duele
@@ -118,6 +121,26 @@ pase por accidente.
 Detalles de la interfaz: mantené apretado cualquier mensaje para copiarlo,
 las sugerencias desaparecen cuando la conversación arranca, y mientras el
 modelo piensa laten tres puntitos en vez de quedarse en blanco.
+
+## Cuándo creerle
+
+Un modelo chico escribe con la misma seguridad un dato verificado y una
+invención. Por eso cada respuesta lleva debajo **con qué se respaldó**:
+
+| Sello | Qué significa |
+|---|---|
+| 🧮 **dato calculado** | lo resolvió una habilidad, no el modelo: es exacto |
+| 🌐 **con fuentes web** | está respaldado por las páginas que consultó, listadas abajo |
+| 📗 **de mi base** | sale de la enciclopedia escrita a mano |
+| ⚠ **sin respaldo** | sale sólo de la memoria del modelo: puede estar inventado |
+
+Además, ante una pregunta de datos Rama **sale a buscar antes de confiar en la
+memoria del modelo**, y cuando no consigue ninguna fuente se lo dice al modelo
+en el prompt: "si no recordás con certeza una fecha, cifra o nombre, decí que
+no estás seguro en lugar de arriesgar".
+
+Nada de esto vuelve infalible a un modelo de 0.6B. Lo que hace es que sepas
+cuál de sus respuestas merece tu confianza.
 
 ## Qué sale del teléfono, y qué no
 

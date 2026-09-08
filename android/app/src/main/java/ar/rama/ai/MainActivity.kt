@@ -33,6 +33,7 @@ import ar.rama.ai.motor.Mensaje
 import ar.rama.ai.motor.Modo
 import ar.rama.ai.motor.Modos
 import ar.rama.ai.motor.PasoAsistente
+import ar.rama.ai.motor.Conversaciones
 import ar.rama.ai.motor.Descargador
 import ar.rama.ai.motor.Rama
 import ar.rama.ai.motor.Resultado
@@ -58,12 +59,17 @@ class MainActivity : Activity() {
     private var asistente: Asistente? = null
     private var generador: Generador? = null
     private var modelos: PantallaModelos? = null
+    private var chats: PantallaChats? = null
+    private lateinit var conversaciones: Conversaciones
+    private var chatActual: String = ""
+    private lateinit var sugerencias: View
     private lateinit var chipModelo: TextView
     private val historial = mutableListOf<Mensaje>()
     private val chipsModo = mutableListOf<Pair<Modo, TextView>>()
     private var modoActual = Modos.PREDETERMINADO
     private var modoPensar = true
     private var generando = false
+    private var animacionEscritura: Runnable? = null
     private var ultimoAdjunto: Adjunto? = null
 
     // Hilo demonio: si no lo fuera, seguiría vivo después de cerrar la
@@ -79,9 +85,18 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         instalarReporteDeErrores()
         modoActual = Modos.porId(preferencias().getString("modo", null))
+        conversaciones = Conversaciones(File(filesDir, "chats"))
+        chatActual = preferencias().getString("chat", null) ?: Conversaciones.nuevoId()
 
         val raiz = android.widget.FrameLayout(this)
         raiz.addView(construirPantalla())
+        chats = PantallaChats(
+            actividad = this,
+            conversaciones = conversaciones,
+            chatActual = { chatActual },
+            alAbrir = { id -> abrirChat(id) },
+            alNuevo = { nuevoChat() },
+        ).also { raiz.addView(it.vista) }
         modelos = PantallaModelos(
             actividad = this,
             carpeta = File(filesDir, "modelos"),
@@ -133,7 +148,13 @@ class MainActivity : Activity() {
         )
     }
 
+    override fun onPause() {
+        super.onPause()
+        guardarChat()
+    }
+
     override fun onDestroy() {
+        detenerAnimacion()
         generador?.cerrar()
         trabajador.shutdownNow()
         super.onDestroy()
@@ -160,14 +181,12 @@ class MainActivity : Activity() {
                 ayudante.modo = modoActual
                 asistente = ayudante
                 subtitulo.text = "${motor.totalIntenciones} temas · ${motor.totalPatrones} patrones"
-                burbujaRama(
-                    "¡Hola! Soy Rama. Corro entera adentro de tu teléfono: el modelo que " +
-                        "escribe mis respuestas es mío y local, no consulto la IA de nadie.\n\n" +
-                        "Para que pueda redactar respuestas propias necesito un modelo: tocalo " +
-                        "arriba a la derecha y elegí uno. Sin él sigo andando con mi base y mis " +
-                        "habilidades, que son exactas pero acotadas.\n\n" +
-                        "Arriba tenés los modos: cambian cómo escribo. Siempre contesto en español."
-                )
+
+                // Si veníamos de una conversación, se retoma donde quedó.
+                val guardado = conversaciones.cargar(chatActual)
+                if (guardado.isNotEmpty()) abrirChat(chatActual) else saludar()
+                actualizarSugerencias()
+
                 mostrarErrorAnterior()
                 restaurarModelo()
                 atenderArchivoCompartido()
@@ -202,7 +221,8 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f),
         )
 
-        raiz.addView(construirSugerencias())
+        sugerencias = construirSugerencias()
+        raiz.addView(sugerencias)
         raiz.addView(construirBarraEntrada())
         return raiz
     }
@@ -213,6 +233,18 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(16f), dp(14f), dp(12f), dp(12f))
         }
+
+        val botonChats = TextView(this).estilo(17f, Paleta.TENUE).apply {
+            text = "☰"
+            gravity = Gravity.CENTER
+            background = fondoPulsable(Paleta.PANEL, dp(19f).toFloat(), Paleta.BORDE, dp(1f))
+            setOnClickListener { chats?.mostrar() }
+            contentDescription = "Chats guardados"
+        }
+        fila.addView(
+            botonChats,
+            LinearLayout.LayoutParams(dp(38f), dp(38f)).apply { rightMargin = dp(10f) },
+        )
 
         val textos = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val titulo = TextView(this).estilo(21f, Paleta.TEXTO, negrita = true)
@@ -440,13 +472,15 @@ class MainActivity : Activity() {
         }
 
         val bloque = if (modoPensar) bloquePensar() else null
-        val burbuja = burbujaRama("…")
+        val burbuja = burbujaRama("")
+        animarEscritura(burbuja)
         val acumulado = StringBuilder()
         generando = true
         pintarBotonEnviar()
 
         val turnos = historial.toList()
         historial.add(Mensaje("user", limpio))
+        actualizarSugerencias()
 
         enSegundoPlano("pensando la respuesta") {
             val respuesta = ayudante.responder(
@@ -455,6 +489,7 @@ class MainActivity : Activity() {
                 alPaso = { paso -> principal.post { bloque?.agregarPaso(paso.titulo, paso.detalle); alFinal() } },
             ) { fragmento ->
                 principal.post {
+                    detenerAnimacion()
                     acumulado.append(fragmento)
                     burbuja.text = acumulado
                     alFinal()
@@ -463,6 +498,7 @@ class MainActivity : Activity() {
             }
 
             principal.post {
+                detenerAnimacion()
                 generando = false
                 pintarBotonEnviar()
                 val texto = respuesta.texto
@@ -470,6 +506,7 @@ class MainActivity : Activity() {
                 historial.add(Mensaje("assistant", texto))
                 bloque?.cerrar(respuesta.pasos.size)
                 if (respuesta.fuentesWeb.isNotEmpty()) fichaFuentes(respuesta.fuentesWeb)
+                guardarChat()
                 alFinal()
             }
         }
@@ -484,6 +521,7 @@ class MainActivity : Activity() {
         burbujaRama(adjunto.resumen)
         historial.add(Mensaje("user", pregunta))
         historial.add(Mensaje("assistant", adjunto.resumen))
+        guardarChat()
     }
 
     /** Las fuentes que consultó, como tarjeta aparte y tocable. */
@@ -614,6 +652,92 @@ class MainActivity : Activity() {
 
     private fun preferencias() = getSharedPreferences("rama", MODE_PRIVATE)
 
+    // ------------------------------------------------------------- chats
+
+    /** Se guarda solo, después de cada intercambio. No hay botón de guardar. */
+    private fun guardarChat() {
+        if (historial.isEmpty()) return
+        try {
+            conversaciones.guardar(chatActual, historial.toList())
+            preferencias().edit().putString("chat", chatActual).apply()
+        } catch (e: Exception) {
+            avisar("No pude guardar el chat: ${e.message}")
+        }
+    }
+
+    private fun nuevoChat() {
+        guardarChat()
+        chatActual = Conversaciones.nuevoId()
+        historial.clear()
+        ultimoAdjunto = null
+        contenedorChat.removeAllViews()
+        preferencias().edit().putString("chat", chatActual).apply()
+        actualizarSugerencias()
+        saludar()
+    }
+
+    private fun abrirChat(id: String) {
+        guardarChat()
+        val mensajes = conversaciones.cargar(id)
+        chatActual = id
+        historial.clear()
+        historial.addAll(mensajes)
+        ultimoAdjunto = null
+        contenedorChat.removeAllViews()
+        preferencias().edit().putString("chat", id).apply()
+
+        for (mensaje in mensajes) {
+            if (mensaje.rol == "user") burbujaUsuario(mensaje.contenido)
+            else burbujaRama(mensaje.contenido)
+        }
+        actualizarSugerencias()
+        alFinal()
+    }
+
+    /** Las sugerencias sólo estorban cuando la conversación ya arrancó. */
+    private fun actualizarSugerencias() {
+        sugerencias.visibility = if (historial.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun saludar() {
+        burbujaRama(
+            "¡Hola! Soy Rama. Corro entera adentro de tu teléfono: el modelo que escribe " +
+                "mis respuestas es mío y local, no consulto la IA de nadie.\n\n" +
+                "Los modos de arriba cambian cómo escribo, ☰ guarda y abre tus chats, y " +
+                "siempre contesto en español."
+        )
+    }
+
+    /** Tres puntitos que laten mientras el modelo arranca. */
+    private fun animarEscritura(burbuja: TextView) {
+        detenerAnimacion()
+        var paso = 0
+        val latido = object : Runnable {
+            override fun run() {
+                burbuja.text = "·".repeat(1 + paso % 3)
+                paso++
+                principal.postDelayed(this, 350)
+            }
+        }
+        animacionEscritura = latido
+        principal.post(latido)
+    }
+
+    private fun detenerAnimacion() {
+        animacionEscritura?.let { principal.removeCallbacks(it) }
+        animacionEscritura = null
+    }
+
+    private fun copiar(texto: String) {
+        try {
+            val portapapeles = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            portapapeles.setPrimaryClip(android.content.ClipData.newPlainText("Rama", texto))
+            avisar("Copiado al portapapeles")
+        } catch (e: Exception) {
+            avisar("No pude copiar")
+        }
+    }
+
     /**
      * Copia el .gguf elegido a la carpeta de la app.
      *
@@ -670,6 +794,7 @@ class MainActivity : Activity() {
         val burbuja = TextView(this).estilo(15f, Color.WHITE).apply {
             text = texto
             padding(dp(14f), dp(10f))
+            setOnLongClickListener { copiar(texto); true }
             background = fondoRedondeado(
                 Paleta.USUARIO, 0f,
                 radios = esquinas(dp(16f).toFloat(), abajoDerecha = dp(4f).toFloat()),
@@ -682,6 +807,7 @@ class MainActivity : Activity() {
         val burbuja = TextView(this).estilo(15f, Paleta.TEXTO).apply {
             text = texto
             padding(dp(14f), dp(11f))
+            setOnLongClickListener { copiar(this.text.toString()); true }
             background = fondoRedondeado(
                 Paleta.PANEL, 0f, Paleta.BORDE, dp(1f),
                 radios = esquinas(dp(16f).toFloat(), abajoIzquierda = dp(4f).toFloat()),
@@ -852,6 +978,7 @@ class MainActivity : Activity() {
                 burbujaRama(adjunto.resumen)
                 fichaDatos(adjunto.datos)
                 historial.add(Mensaje("assistant", adjunto.resumen))
+                guardarChat()
             }
         }
     }

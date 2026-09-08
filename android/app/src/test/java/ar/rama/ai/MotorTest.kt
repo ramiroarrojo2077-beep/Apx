@@ -4,6 +4,7 @@ import ar.rama.ai.motor.AlmacenEnMemoria
 import ar.rama.ai.motor.Asistente
 import ar.rama.ai.motor.Buscador
 import ar.rama.ai.motor.Catalogo
+import ar.rama.ai.motor.Conversaciones
 import ar.rama.ai.motor.Descargador
 import ar.rama.ai.motor.FiltroPensamiento
 import ar.rama.ai.motor.Modos
@@ -646,6 +647,134 @@ class MotorTest {
         assertTrue(conversacion.first().contenido.contains(Modos.AL_HUESO.instruccion))
         assertTrue("falta apagar el razonamiento del modelo",
             conversacion.last().contenido.contains(Asistente.SIN_RAZONAR))
+    }
+
+    // ------------------------------------------------- chats guardados
+
+    private fun carpetaTemporal(): File =
+        File.createTempFile("chats", "").let { archivo ->
+            archivo.delete()
+            archivo.mkdirs()
+            archivo.deleteOnExit()
+            archivo
+        }
+
+    @Test
+    fun guardaYRecuperaUnaConversacion() {
+        val chats = Conversaciones(carpetaTemporal())
+        val id = Conversaciones.nuevoId()
+        val mensajes = listOf(
+            Mensaje("user", "¿cuál es la capital de Francia?"),
+            Mensaje("assistant", "París."),
+        )
+        val resumen = chats.guardar(id, mensajes)
+        assertNotNull(resumen)
+        assertEquals(2, resumen!!.cantidadMensajes)
+        assertEquals(mensajes, chats.cargar(id))
+    }
+
+    @Test
+    fun elTituloSaleDeLaPrimeraPregunta() {
+        assertEquals(
+            "¿cuál es la capital de Francia?",
+            Conversaciones.tituloDe(listOf(
+                Mensaje("assistant", "hola"),
+                Mensaje("user", "¿cuál es la capital de Francia?"),
+            )),
+        )
+    }
+
+    @Test
+    fun elTituloLargoSeRecorta() {
+        val largo = "a".repeat(200)
+        val titulo = Conversaciones.tituloDe(listOf(Mensaje("user", largo)))
+        assertTrue("no recortó: ${titulo.length}", titulo.length <= 48)
+        assertTrue(titulo.endsWith("…"))
+    }
+
+    @Test
+    fun elTituloAplastaLosSaltosDeLinea() {
+        assertEquals("hola que tal", Conversaciones.tituloDe(listOf(Mensaje("user", "hola\n  que\ttal"))))
+    }
+
+    @Test
+    fun noGuardaConversacionesVacias() {
+        val chats = Conversaciones(carpetaTemporal())
+        assertNull(chats.guardar(Conversaciones.nuevoId(), emptyList()))
+        assertNull(chats.guardar(Conversaciones.nuevoId(), listOf(Mensaje("system", "reglas"))))
+    }
+
+    @Test
+    fun noGuardaElMensajeDeSistema() {
+        val chats = Conversaciones(carpetaTemporal())
+        val id = Conversaciones.nuevoId()
+        chats.guardar(id, listOf(Mensaje("system", "reglas"), Mensaje("user", "hola")))
+        assertEquals(listOf(Mensaje("user", "hola")), chats.cargar(id))
+    }
+
+    @Test
+    fun listaLosChatsDelMasNuevoAlMasViejo() {
+        val chats = Conversaciones(carpetaTemporal())
+        val reloj = longArrayOf(1_000L)
+        Conversaciones.ahora = { reloj[0] }
+        try {
+            chats.guardar("viejo", listOf(Mensaje("user", "primero")))
+            reloj[0] = 5_000L
+            chats.guardar("nuevo", listOf(Mensaje("user", "segundo")))
+            val lista = chats.listar()
+            assertEquals(2, lista.size)
+            assertEquals("nuevo", lista[0].id)
+            assertEquals("viejo", lista[1].id)
+        } finally {
+            Conversaciones.ahora = { System.currentTimeMillis() }
+        }
+    }
+
+    @Test
+    fun borrarSacaElChatDeLaLista() {
+        val chats = Conversaciones(carpetaTemporal())
+        chats.guardar("uno", listOf(Mensaje("user", "hola")))
+        assertEquals(1, chats.listar().size)
+        assertTrue(chats.borrar("uno"))
+        assertTrue(chats.listar().isEmpty())
+        assertTrue(chats.cargar("uno").isEmpty())
+    }
+
+    @Test
+    fun unArchivoCorruptoNoRompeLaLista() {
+        val carpeta = carpetaTemporal()
+        val chats = Conversaciones(carpeta)
+        chats.guardar("bueno", listOf(Mensaje("user", "hola")))
+        File(carpeta, "roto.chat.json").writeText("{esto no es json")
+        val lista = chats.listar()
+        assertEquals(1, lista.size)
+        assertEquals("bueno", lista[0].id)
+    }
+
+    @Test
+    fun renombrarConservaLosMensajes() {
+        val chats = Conversaciones(carpetaTemporal())
+        chats.guardar("uno", listOf(Mensaje("user", "hola"), Mensaje("assistant", "buenas")))
+        assertTrue(chats.renombrar("uno", "Charla de prueba"))
+        assertEquals("Charla de prueba", chats.listar()[0].titulo)
+        assertEquals(2, chats.cargar("uno").size)
+    }
+
+    @Test
+    fun losIdSonDistintos() {
+        val ids = (1..50).map { Conversaciones.nuevoId() }.toSet()
+        assertTrue("hubo colisiones de id: ${50 - ids.size}", ids.size >= 48)
+    }
+
+    @Test
+    fun lasFechasSeDicenComoLasDiriaAlguien() {
+        val ahora = System.currentTimeMillis()
+        val minuto = 60_000L
+        assertEquals("recién", PantallaChats.cuandoFue(ahora, ahora))
+        assertEquals("hace 5 min", PantallaChats.cuandoFue(ahora - 5 * minuto, ahora))
+        assertTrue(PantallaChats.cuandoFue(ahora - 120 * minuto, ahora).startsWith("hoy "))
+        assertEquals("ayer", PantallaChats.cuandoFue(ahora - 26 * 60 * minuto, ahora))
+        assertTrue(PantallaChats.cuandoFue(ahora - 3 * 24 * 60 * minuto, ahora).contains("días"))
     }
 
     // ------------------------------------------------------ modo pensar

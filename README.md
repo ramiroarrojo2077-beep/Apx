@@ -74,6 +74,22 @@ El filtro trabaja sobre texto que llega de a pedacitos, así que aguanta que la
 etiqueta venga partida entre dos tokens (`<th` + `ink>`), que el modelo nunca
 la cierre, y que aparezca un `<` suelto en una fórmula.
 
+## Chats guardados
+
+Cada conversación se guarda sola apenas escribís, sin botón de guardar. El
+botón **☰** de arriba a la izquierda abre la lista: título tomado de tu
+primera pregunta, cuándo fue, cuántos mensajes. Tocás uno y se retoma donde
+quedó; **＋ Chat nuevo** empieza de cero.
+
+Todo vive en el almacenamiento privado de la app, un archivo JSON por chat.
+No sale del teléfono, no se sincroniza con nada, y desinstalar la app se lo
+lleva todo. Borrar un chat o borrarlos todos pide dos toques, para que no
+pase por accidente.
+
+Detalles de la interfaz: mantené apretado cualquier mensaje para copiarlo,
+las sugerencias desaparecen cuando la conversación arranca, y mientras el
+modelo piensa laten tres puntitos en vez de quedarse en blanco.
+
 ## Qué sale del teléfono, y qué no
 
 - **Tus conversaciones: nunca.** El modelo corre local. No hay a dónde mandarlas.

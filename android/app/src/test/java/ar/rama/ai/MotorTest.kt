@@ -567,10 +567,42 @@ class MotorTest {
     }
 
     @Test
+    fun cortaEnLaMarcaDeFinDeTurno() {
+        val filtro = FiltroPensamiento()
+        val visible = StringBuilder()
+        visible.append(filtro.procesar("Hola, todo bien.<|im_end|>"))
+        visible.append(filtro.procesar("<|im_start|>user\ninventando un diálogo"))
+        visible.append(filtro.cerrar())
+        assertEquals("Hola, todo bien.", visible.toString())
+        assertTrue("no marcó el fin del turno", filtro.terminado)
+    }
+
+    @Test
+    fun laMarcaDeFinTambienPartidaEntreTokens() {
+        val (visible, _) = filtrar(listOf("Listo.", "<|im", "_end|>", " basura"))
+        assertEquals("Listo.", visible)
+    }
+
+    @Test
+    fun elContextoSeAchicaConLosModelosGrandes() {
+        val chico = File.createTempFile("chico", ".gguf").apply { deleteOnExit() }
+        assertEquals(Generador.CONTEXTO, Generador.contextoRecomendado(chico))
+        // No hace falta escribir un giga: basta con declarar el largo.
+        val grande = File.createTempFile("grande", ".gguf").apply {
+            java.io.RandomAccessFile(this, "rw").use { it.setLength(1200L * 1024 * 1024) }
+            deleteOnExit()
+        }
+        assertTrue(Generador.contextoRecomendado(grande) < Generador.CONTEXTO)
+        grande.delete()
+    }
+
+    @Test
     fun todosLosModosPidenEspanol() {
         assertTrue(Modos.BASE.contains("español rioplatense"))
-        assertTrue("no prohíbe otros idiomas", Modos.BASE.contains("Nunca contestes en"))
-        assertTrue("no prohíbe mostrar el razonamiento", Modos.BASE.contains("No muestres tu razonamiento"))
+        assertTrue("no prohíbe el inglés", Modos.BASE.contains("Nunca en inglés"))
+        assertTrue("no prohíbe razonar en voz alta", Modos.BASE.contains("sin razonar en voz alta"))
+        assertTrue("no defiende el dato verificado", Modos.BASE.contains("DATO VERIFICADO"))
+        assertTrue("no pide citar la fuente", Modos.BASE.contains("citá la fuente"))
         for (modo in Modos.TODOS) {
             val sistema = Modos.sistema(modo)
             assertTrue("«${modo.nombre}» no lleva la base", sistema.contains("español rioplatense"))

@@ -116,9 +116,8 @@ class Asistente(
             if (visible.isNotEmpty()) {
                 construida.append(visible)
                 alFragmento(visible)
-            } else {
-                true
             }
+            !filtro.terminado
         }
         val cola = filtro.cerrar()
         if (cola.isNotEmpty()) {

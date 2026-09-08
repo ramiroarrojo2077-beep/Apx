@@ -540,7 +540,35 @@ class MainActivity : Activity() {
         if (archivo.exists()) cargarModelo(archivo) else chipModelo.text = "sin modelo"
     }
 
+    /**
+     * Si el modelo no entra en la memoria libre, el sistema mata la app sin
+     * decir nada. Es preferible avisarlo antes que cerrarse de golpe.
+     */
+    private fun memoriaAlcanza(archivo: File): Boolean {
+        return try {
+            val gestor = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+            val info = android.app.ActivityManager.MemoryInfo()
+            gestor.getMemoryInfo(info)
+            info.availMem > archivo.length() * 11 / 10
+        } catch (e: Exception) {
+            true  // sin datos, dejamos intentar
+        }
+    }
+
     private fun cargarModelo(archivo: File) {
+        if (!memoriaAlcanza(archivo)) {
+            val gestor = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+            val info = android.app.ActivityManager.MemoryInfo()
+            gestor.getMemoryInfo(info)
+            burbujaRama(
+                "«${archivo.name}» pesa ${AnalizadorAdjuntos.pesoLegible(archivo.length())} y ahora " +
+                    "mismo hay ${AnalizadorAdjuntos.pesoLegible(info.availMem)} de memoria libre. " +
+                    "Si lo cargo, el sistema va a cerrar la app.\n\n" +
+                    "Cerrá otras aplicaciones y probá de nuevo, o usá el modelo chico."
+            )
+            chipModelo.text = "sin modelo"
+            return
+        }
         chipModelo.text = "cargando…"
         enSegundoPlano("cargando el modelo") {
             generador?.cerrar()

@@ -6,6 +6,7 @@
 
 #include <jni.h>
 
+#include <algorithm>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -79,6 +80,47 @@ std::vector<llama_token> tokenizar(const llama_vocab * vocab, const std::string 
     return tokens;
 }
 
+/**
+ * Crea un String de Java a partir de UTF-8 de verdad.
+ *
+ * No se puede usar NewStringUTF: JNI espera "UTF-8 modificado", donde los
+ * emojis y todo lo que está fuera del plano básico se codifica como pareja
+ * subrogada de 6 bytes, no como la secuencia de 4 que produce un modelo.
+ * Pasarle esos 4 bytes rompe la máquina virtual. Convertimos a UTF-16 a mano.
+ */
+jstring nueva_cadena(JNIEnv * env, const std::string & utf8) {
+    std::vector<jchar> utf16;
+    utf16.reserve(utf8.size());
+
+    size_t i = 0;
+    while (i < utf8.size()) {
+        const unsigned char c = static_cast<unsigned char>(utf8[i]);
+        uint32_t punto;
+        size_t largo;
+
+        if (c < 0x80)              { punto = c;        largo = 1; }
+        else if ((c >> 5) == 0x6)  { punto = c & 0x1F; largo = 2; }
+        else if ((c >> 4) == 0xE)  { punto = c & 0x0F; largo = 3; }
+        else if ((c >> 3) == 0x1E) { punto = c & 0x07; largo = 4; }
+        else                       { i++; continue; }  // byte suelto: se descarta
+
+        if (i + largo > utf8.size()) break;
+        for (size_t j = 1; j < largo; j++) {
+            punto = (punto << 6) | (static_cast<unsigned char>(utf8[i + j]) & 0x3F);
+        }
+        i += largo;
+
+        if (punto < 0x10000) {
+            utf16.push_back(static_cast<jchar>(punto));
+        } else {
+            punto -= 0x10000;
+            utf16.push_back(static_cast<jchar>(0xD800 + (punto >> 10)));
+            utf16.push_back(static_cast<jchar>(0xDC00 + (punto & 0x3FF)));
+        }
+    }
+    return env->NewString(utf16.data(), static_cast<jsize>(utf16.size()));
+}
+
 std::string desde_jstring(JNIEnv * env, jstring texto) {
     if (texto == nullptr) return {};
     const char * crudo = env->GetStringUTFChars(texto, nullptr);
@@ -142,7 +184,7 @@ Java_ar_rama_ai_motor_Llama_nativeCerrar(JNIEnv *, jobject, jlong handle) {
 JNIEXPORT jstring JNICALL
 Java_ar_rama_ai_motor_Llama_nativeInfo(JNIEnv * env, jobject, jlong handle) {
     Sesion * sesion = sesion_de(handle);
-    if (sesion == nullptr) return env->NewStringUTF("");
+    if (sesion == nullptr) return nueva_cadena(env, "");
 
     char descripcion[256] = {0};
     llama_model_desc(sesion->modelo, descripcion, sizeof(descripcion));
@@ -153,7 +195,7 @@ Java_ar_rama_ai_motor_Llama_nativeInfo(JNIEnv * env, jobject, jlong handle) {
     std::string info = std::string(descripcion) +
                        " · " + std::to_string(parametros / 1000000) + "M parámetros" +
                        " · contexto " + std::to_string(contexto);
-    return env->NewStringUTF(info.c_str());
+    return nueva_cadena(env, info);
 }
 
 /**
@@ -165,10 +207,10 @@ Java_ar_rama_ai_motor_Llama_nativeFormatearChat(JNIEnv * env, jobject, jlong han
                                                 jobjectArray roles, jobjectArray contenidos,
                                                 jboolean agregar_asistente) {
     Sesion * sesion = sesion_de(handle);
-    if (sesion == nullptr) return env->NewStringUTF("");
+    if (sesion == nullptr) return nueva_cadena(env, "");
 
     const char * plantilla = llama_model_chat_template(sesion->modelo, nullptr);
-    if (plantilla == nullptr) return env->NewStringUTF("");
+    if (plantilla == nullptr) return nueva_cadena(env, "");
 
     const jsize cantidad = env->GetArrayLength(roles);
     std::vector<std::string> textos_rol(cantidad);
@@ -196,8 +238,8 @@ Java_ar_rama_ai_motor_Llama_nativeFormatearChat(JNIEnv * env, jobject, jlong han
                                       agregar_asistente == JNI_TRUE,
                                       buffer.data(), static_cast<int32_t>(buffer.size()));
     }
-    if (n < 0) return env->NewStringUTF("");
-    return env->NewStringUTF(std::string(buffer.data(), n).c_str());
+    if (n < 0) return nueva_cadena(env, "");
+    return nueva_cadena(env, std::string(buffer.data(), n));
 }
 
 JNIEXPORT void JNICALL
@@ -233,7 +275,11 @@ Java_ar_rama_ai_motor_Llama_nativeGenerar(JNIEnv * env, jobject, jlong handle, j
 
     if (sesion->muestreador) llama_sampler_free(sesion->muestreador);
     sesion->muestreador = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    // El top-k va primero: penalizar sobre el vocabulario entero es lento.
     llama_sampler_chain_add(sesion->muestreador, llama_sampler_init_top_k(top_k));
+    // Sin penalización, un modelo chico se traba repitiendo la misma frase.
+    llama_sampler_chain_add(sesion->muestreador, llama_sampler_init_penalties(
+        llama_vocab_n_tokens(sesion->vocab), 64, 1.12f, 0.0f, 0.0f));
     llama_sampler_chain_add(sesion->muestreador, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sesion->muestreador, llama_sampler_init_temp(temperatura));
     llama_sampler_chain_add(sesion->muestreador, llama_sampler_init_dist(static_cast<uint32_t>(semilla)));
@@ -248,13 +294,21 @@ Java_ar_rama_ai_motor_Llama_nativeGenerar(JNIEnv * env, jobject, jlong handle, j
         tokens.erase(tokens.begin(), tokens.begin() + (tokens.size() + 8 - contexto));
     }
 
-    llama_batch lote = llama_batch_get_one(tokens.data(), static_cast<int32_t>(tokens.size()));
-    if (llama_decode(sesion->ctx, lote) != 0) return -4;
+    // Un prompt más largo que el lote máximo hace abortar a llama_decode, y
+    // con el sistema, el contexto y la búsqueda se pasa de 512 sin esfuerzo.
+    const size_t tope_lote = llama_n_batch(sesion->ctx);
+    for (size_t desde = 0; desde < tokens.size(); desde += tope_lote) {
+        const size_t cuantos = std::min(tope_lote, tokens.size() - desde);
+        llama_batch lote = llama_batch_get_one(tokens.data() + desde, static_cast<int32_t>(cuantos));
+        if (llama_decode(sesion->ctx, lote) != 0) return -4;
+    }
 
     std::string pendiente;   // bytes UTF-8 que todavía no forman una letra
     int generados = 0;
+    size_t usados = tokens.size();
 
     for (int i = 0; i < max_tokens; i++) {
+        if (usados + 1 >= contexto) break;  // se acabó la ventana de contexto
         if (sesion->cancelar) break;
 
         const llama_token token = llama_sampler_sample(sesion->muestreador, sesion->ctx, -1);
@@ -263,7 +317,7 @@ Java_ar_rama_ai_motor_Llama_nativeGenerar(JNIEnv * env, jobject, jlong handle, j
         pendiente += texto_del_token(sesion->vocab, token);
         const size_t completo = prefijo_utf8_completo(pendiente);
         if (completo > 0) {
-            jstring fragmento = env->NewStringUTF(pendiente.substr(0, completo).c_str());
+            jstring fragmento = nueva_cadena(env, pendiente.substr(0, completo));
             const jboolean seguir = env->CallBooleanMethod(receptor, on_token, fragmento);
             env->DeleteLocalRef(fragmento);
             if (env->ExceptionCheck()) { env->ExceptionClear(); break; }
@@ -272,6 +326,7 @@ Java_ar_rama_ai_motor_Llama_nativeGenerar(JNIEnv * env, jobject, jlong handle, j
         }
 
         generados++;
+        usados++;
         llama_token siguiente = token;
         llama_batch lote_uno = llama_batch_get_one(&siguiente, 1);
         if (llama_decode(sesion->ctx, lote_uno) != 0) break;

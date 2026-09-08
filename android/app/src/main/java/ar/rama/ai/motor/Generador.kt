@@ -80,11 +80,22 @@ class Generador private constructor(
          * Abre un modelo GGUF. Devuelve null si no se pudo cargar (archivo
          * corrupto, formato desconocido o memoria insuficiente).
          */
-        fun abrir(archivo: File, contexto: Int = CONTEXTO, hilos: Int = hilosRecomendados()): Generador? {
+        fun abrir(
+            archivo: File,
+            contexto: Int = contextoRecomendado(archivo),
+            hilos: Int = hilosRecomendados(),
+        ): Generador? {
             if (!Llama.disponible || !archivo.exists()) return null
             val handle = Llama.nativeAbrir(archivo.absolutePath, contexto, hilos)
             return if (handle == 0L) null else Generador(handle, archivo)
         }
+
+        /**
+         * Un modelo grande ya se come la memoria con sus pesos; la caché de
+         * atención se lleva el resto. Con los chicos podemos ser generosos.
+         */
+        fun contextoRecomendado(archivo: File): Int =
+            if (archivo.length() > 800L * 1024 * 1024) 2048 else CONTEXTO
 
         /**
          * Dejamos núcleos libres: si ocupamos todos, la interfaz se traba y el

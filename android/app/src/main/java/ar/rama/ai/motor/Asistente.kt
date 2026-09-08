@@ -105,18 +105,40 @@ class Asistente(
         // 5. Generar. Sin modelo cargado, Rama vuelve a ser la de antes.
         val motor = generador
         if (motor == null) {
-            paso("Sin modelo", "no hay modelo cargado: respondo con la base y las habilidades")
-            val local = if (datoExacto != null) null else rama.responder(pregunta)
-            // Si ni la base ni las habilidades saben, el problema no es la
-            // pregunta: es que falta lo único que puede responder cualquier cosa.
-            val respaldo = datoExacto
-                ?: local?.takeIf { it.fuente != "fallback" }?.texto
-                ?: SIN_MODELO
-            alFragmento(respaldo)
-            return RespuestaAsistente(
-                respaldo, "sin-modelo", pasos, resultados,
-                if (datoExacto != null) Respaldo.CALCULO else Respaldo.BASE,
-            )
+            paso("Sin modelo", "no hay modelo cargado: sólo puedo usar la base y las habilidades")
+
+            // Sólo se contesta con la base cuando la coincidencia es franca.
+            // Servir una coincidencia floja es peor que admitir que no se sabe:
+            // fue lo que hizo que una pregunta sobre elecciones recibiera la
+            // definición de átomo.
+            val deLaBase = if (datoExacto != null) null
+            else rama.recuperar(pregunta, maximo = 1, umbral = Rama.UMBRAL_ALTO).firstOrNull()
+
+            val texto: String
+            val respaldo: Respaldo
+            when {
+                datoExacto != null -> {
+                    texto = datoExacto
+                    respaldo = Respaldo.CALCULO
+                }
+                deLaBase != null -> {
+                    texto = deLaBase
+                    respaldo = Respaldo.BASE
+                }
+                resultados.isNotEmpty() -> {
+                    // Sin modelo no puedo redactar, pero sí mostrar lo encontrado.
+                    texto = resumenDeBusqueda(resultados)
+                    respaldo = Respaldo.WEB
+                }
+                else -> {
+                    texto = SIN_MODELO
+                    respaldo = Respaldo.SOLO_MODELO
+                }
+            }
+            paso("Respaldo", "${respaldo.etiqueta}: ${respaldo.explicacion}")
+            alFragmento(texto)
+            rama.memoria.registrarTurno("rama", texto)
+            return RespuestaAsistente(texto, "sin-modelo", pasos, resultados, respaldo)
         }
 
         val conversacion = armarConversacion(pregunta, historial, datoExacto, contextoLocal, resultados)
@@ -168,6 +190,19 @@ class Asistente(
 
     fun cancelar() {
         generador?.cancelar()
+    }
+
+    /** Sin modelo que redacte, al menos se entrega lo que trajo la búsqueda. */
+    fun resumenDeBusqueda(resultados: List<Resultado>): String = buildString {
+        append("No tengo un modelo cargado para redactarte una respuesta, ")
+        append("pero busqué en la web y encontré esto:\n\n")
+        resultados.forEachIndexed { i, resultado ->
+            append("${i + 1}. ${resultado.titulo}\n")
+            if (resultado.resumen.isNotBlank()) append("${resultado.resumen}\n")
+            append("\n")
+        }
+        append("Las fuentes están abajo. Si descargás un modelo, en vez de la lista ")
+        append("te doy la respuesta redactada.")
     }
 
     /** Arma los mensajes que ve el modelo, con el contexto por delante. */

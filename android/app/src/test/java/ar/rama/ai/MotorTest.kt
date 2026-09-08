@@ -414,6 +414,48 @@ class MotorTest {
     }
 
     @Test
+    fun noContestaConCoincidenciasFlojas() {
+        // Caso real: "¿cómo está posicionado Milei en las elecciones 2027?"
+        // devolvía la definición de átomo, con el prefijo "creo que va por acá".
+        val asistente = nuevoAsistente()
+        asistente.buscarEnWeb = false
+        val pregunta = "Como esta posicionado Milei en las elecciones 2027"
+
+        val partes = StringBuilder()
+        val r = asistente.responder(pregunta) { partes.append(it); true }
+
+        assertFalse("sirvió una coincidencia irrelevante: ${r.texto}", r.texto.contains("átomo"))
+        assertFalse("sirvió una coincidencia irrelevante: ${r.texto}", r.texto.contains("electrones"))
+        assertFalse("hedge sobre una respuesta que no corresponde",
+            r.texto.contains("creo que va por acá"))
+        assertTrue("debería decir que le falta el modelo: ${r.texto}",
+            r.texto.contains("modelo"))
+    }
+
+    @Test
+    fun elContextoLocalNoTraeRuido() {
+        val ia = nuevaRama()
+        val ruido = ia.recuperar("Como esta posicionado Milei en las elecciones 2027")
+        assertTrue("trajo contexto que no tiene nada que ver: $ruido", ruido.isEmpty())
+        // Y lo pertinente sigue llegando.
+        assertTrue(ia.recuperar("que es python").isNotEmpty())
+    }
+
+    @Test
+    fun sinModeloPeroConWebEntregaLoEncontrado() {
+        val asistente = nuevoAsistente()
+        val resumen = asistente.resumenDeBusqueda(
+            listOf(
+                Resultado("Encuestas 2027", "https://ejemplo.com/a", "Los últimos sondeos."),
+                Resultado("Análisis electoral", "https://ejemplo.com/b", "Un panorama."),
+            )
+        )
+        assertTrue(resumen.contains("Encuestas 2027"))
+        assertTrue(resumen.contains("Los últimos sondeos"))
+        assertTrue(resumen.contains("Análisis electoral"))
+    }
+
+    @Test
     fun lasPreguntasDeDatosVanALaWeb() {
         val asistente = nuevoAsistente()
         // Un modelo chico inventa fechas y nombres: mejor traer la fuente.

@@ -64,6 +64,7 @@ class MainActivity : Activity() {
     private lateinit var conversaciones: Conversaciones
     private var chatActual: String = ""
     private lateinit var sugerencias: View
+    private lateinit var avisoModelo: TextView
     private lateinit var chipModelo: TextView
     private val historial = mutableListOf<Mensaje>()
     private val chipsModo = mutableListOf<Pair<Modo, TextView>>()
@@ -196,6 +197,7 @@ class MainActivity : Activity() {
                 if (guardado.isNotEmpty()) abrirChat(chatActual) else saludar()
                 actualizarSugerencias()
 
+                actualizarAvisoModelo()
                 mostrarErrorAnterior()
                 restaurarModelo()
                 atenderArchivoCompartido()
@@ -230,6 +232,8 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f),
         )
 
+        avisoModelo = construirAvisoModelo()
+        raiz.addView(avisoModelo)
         sugerencias = construirSugerencias()
         raiz.addView(sugerencias)
         raiz.addView(construirBarraEntrada())
@@ -311,6 +315,33 @@ class MainActivity : Activity() {
     private fun construirDivisor(): View = View(this).apply {
         setBackgroundColor(Paleta.BORDE)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1f))
+    }
+
+    /**
+     * La franja que avisa que falta el modelo.
+     *
+     * Sin modelo Rama sólo sabe lo que tiene escrito, y eso desconcierta: uno
+     * pregunta cualquier cosa y no entiende por qué no contesta. Mejor decirlo
+     * todo el tiempo, y que se pueda tocar para resolverlo.
+     */
+    private fun construirAvisoModelo(): TextView =
+        TextView(this).estilo(12.5f, 0xFF1A1206.toInt(), negrita = true).apply {
+            text = "⚠  Sin modelo cargado · sólo respondo lo que tengo escrito · tocá para descargar uno"
+            gravity = Gravity.CENTER
+            padding(dp(12f), dp(9f))
+            background = fondoPulsable(0xFFFFB74D.toInt(), dp(10f).toFloat())
+            setOnClickListener { modelos?.mostrar() }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                leftMargin = dp(12f)
+                rightMargin = dp(12f)
+                bottomMargin = dp(6f)
+            }
+        }
+
+    private fun actualizarAvisoModelo() {
+        avisoModelo.visibility = if (generador == null) View.VISIBLE else View.GONE
     }
 
     /** La fila de modos: lo primero que se ve, porque cambia todo lo demás. */
@@ -673,6 +704,7 @@ class MainActivity : Activity() {
                     chipModelo.text = archivo.nameWithoutExtension
                     burbujaRama("Modelo cargado: ${abierto.info}\n\nYa puedo escribir respuestas propias.")
                 }
+                actualizarAvisoModelo()
                 modelos?.refrescar()
             }
         }
@@ -684,6 +716,7 @@ class MainActivity : Activity() {
         asistente?.generador = null
         preferencias().edit().remove("modelo").apply()
         chipModelo.text = "sin modelo"
+        actualizarAvisoModelo()
     }
 
     private fun pedirModelo() {

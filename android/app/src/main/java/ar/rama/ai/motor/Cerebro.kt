@@ -159,10 +159,12 @@ class Rama(
     /**
      * Los fragmentos de la base que más se parecen a la consulta.
      *
-     * Es el contexto local que le pasamos al modelo generativo: lo que Rama
-     * ya sabe, puesto delante para que no tenga que inventarlo.
+     * Es el contexto local que le pasamos al modelo generativo. El umbral es
+     * alto a propósito: un fragmento apenas parecido no ayuda, desvía. Con el
+     * umbral bajo, una pregunta sobre elecciones traía la definición de átomo
+     * y el modelo terminaba hablando de física.
      */
-    fun recuperar(texto: String, maximo: Int = 3, umbral: Double = UMBRAL_PISTA): List<String> =
+    fun recuperar(texto: String, maximo: Int = 3, umbral: Double = UMBRAL_ALTO): List<String> =
         clasificar(texto)
             .filter { it.second >= umbral }
             .take(maximo)

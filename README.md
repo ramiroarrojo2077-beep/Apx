@@ -41,13 +41,43 @@ python3 -m unittest discover -s tests -q   # tests
 
 ### Qué entiende
 
-- **Charla**: saludos, despedidas, cómo funciona, quién la hizo, estados de ánimo.
+Su base tiene **94 temas** y **337 formas de preguntarlos**, más habilidades que
+*calculan* la respuesta en vez de recitarla:
+
+- **Charla**: saludos, despedidas, estados de ánimo, aburrimiento, nervios, consejos
+  de estudio, sueño, dinero, ejercicio, entrevistas de trabajo, recomendaciones.
+- **Tecnología**: internet, wifi, bluetooth, GPS, algoritmos, bases de datos, APIs,
+  servidores, virus, contraseñas, cifrado, blockchain, machine learning, redes
+  neuronales, Git, Linux, Android, RAM, procesadores, batería.
+- **Ciencia**: por qué el cielo es azul, cómo llueve, gravedad, fotosíntesis, ADN,
+  átomos, edad del universo y de la Tierra, dinosaurios, velocidad de la luz, fases
+  de la Luna.
+- **Geografía**: la capital de cualquiera de **188 países**, y a la inversa
+  (`¿de qué país es capital Roma?`).
 - **Cuentas**: `12*7`, `(3+5)*2`, `2 mas 2`, `el 15% de 200`, `raíz de 144`.
+- **Conversiones**: `cuántas millas son 100 km`, `5 kg en libras`,
+  `20 grados celsius a fahrenheit`. Longitud, masa, volumen, velocidad y temperatura.
+- **Calendario**: `¿qué día cae el 25 de diciembre?`, `¿cuántos días faltan para
+  navidad?`, `¿cuántos años tengo si nací en 1990?`.
+- **Texto**: `¿cuántas letras tiene murciélago?`, `python al revés`,
+  `neuquen es palíndromo`.
 - **Fecha y hora**: `¿qué hora es?`, `¿qué día es hoy?`.
 - **Azar**: `tirá una moneda`, `tirá un dado de 20`, `elegí entre pizza o empanadas`.
 - **Memoria**: `me llamo Ramiro` → después `¿cómo me llamo?`.
 - **Aprendizaje**: `aprende: pregunta = respuesta`, o `responde: ...` para corregir
   la última respuesta. Se guarda en `data/aprendido.json` y sobrevive al reinicio.
+
+### El orden de prioridad
+
+Cuando le preguntás algo, Rama resuelve en este orden, y no es arbitrario:
+
+1. **Comandos** (`aprende:`, `olvidá`, `responde:`) — siempre primero, o «olvidá x»
+   sería respondido por el propio «x» que aprendiste.
+2. **Lo que le enseñaste vos** — si le enseñaste que la capital de Francia es otra
+   cosa, eso le gana a su habilidad de geografía. Es tu forma de corregirla, y no
+   serviría de nada si perdiera.
+3. **Habilidades** — cuentas, capitales, conversiones, fechas, texto, azar.
+4. **Base de conocimiento** — por similitud, con las tres bandas de confianza.
 
 ## Cómo funciona
 

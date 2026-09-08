@@ -120,7 +120,9 @@ object Skills {
     // -------------------------------------------------------- fecha y hora
 
     private val PIDE_HORA = Regex("\\bque hora es\\b|\\bhora actual\\b|\\bdame la hora\\b")
-    private val PIDE_FECHA = Regex("\\bque (dia|fecha) es\\b|\\bfecha de hoy\\b|\\bque dia estamos\\b")
+    private val PIDE_FECHA = Regex(
+        "\\bque (dia|fecha) es hoy\\b|\\bfecha de hoy\\b|\\bque dia estamos\\b|^que (dia|fecha) es$"
+    )
 
     val fechaHora: (String, Rama) -> String? = { texto, _ ->
         val plano = Texto.normalizar(texto)
@@ -285,11 +287,22 @@ object Skills {
         }
     }
 
+    /**
+     * Los comandos de control van antes que todo, incluso antes de lo
+     * aprendido: si no, «olvidá x» podría ser respondido por el propio «x».
+     */
+    val COMANDOS: List<Pair<String, (String, Rama) -> String?>> = listOf(
+        "aprendizaje" to aprendizaje,
+    )
+
     /** El orden importa: lo más específico primero. */
     val TODAS: List<Pair<String, (String, Rama) -> String?>> = listOf(
-        "aprendizaje" to aprendizaje,
         "nombre" to nombre,
         "fecha y hora" to fechaHora,
+        "calendario" to SkillsDatos.calendario,
+        "geografía" to SkillsDatos.geografia,
+        "conversión de unidades" to SkillsDatos.conversiones,
+        "operaciones de texto" to SkillsDatos.operacionesTexto,
         "azar" to azar,
         "memoria de la charla" to memoriaConversacion,
         "calculadora" to calculadora,

@@ -41,6 +41,14 @@ class Rama(
     private val entradas = mutableListOf<Entrada>()
     private val ultimaRespuesta = HashMap<String, Int>()
 
+    /** País (normalizado) -> nombre para mostrar y capital. */
+    var capitales: Map<String, Pair<String, String>> = emptyMap()
+        private set
+
+    /** Formas alternativas de nombrar un país: "eeuu" -> "estados unidos". */
+    var alias: Map<String, String> = emptyMap()
+        private set
+
     val totalIntenciones: Int get() = intenciones.size
     val totalPatrones: Int get() = entradas.size
     val tamanioVocabulario: Int get() = vectorizador.tamanioVocabulario
@@ -59,6 +67,7 @@ class Rama(
 
         try {
             val raiz = JSONObject(conocimientoJson)
+            indexarPaises(raiz.optJSONObject("paises"))
             val lista = raiz.optJSONArray("intenciones")
             if (lista != null) {
                 for (i in 0 until lista.length()) {
@@ -86,6 +95,42 @@ class Rama(
 
         vectorizador.entrenar(entradas.map { it.patron })
         for (entrada in entradas) entrada.vector = vectorizador.vectorizar(entrada.patron)
+    }
+
+    /** Prepara la tabla de capitales para buscar sin tildes ni mayúsculas. */
+    private fun indexarPaises(paises: JSONObject?) {
+        if (paises == null) {
+            capitales = emptyMap()
+            alias = emptyMap()
+            return
+        }
+        val tabla = HashMap<String, Pair<String, String>>()
+        paises.optJSONObject("capitales")?.let { capitalesJson ->
+            for (pais in capitalesJson.keys()) {
+                val mostrar = pais.split(" ").joinToString(" ") { parte ->
+                    parte.replaceFirstChar { it.uppercase() }
+                }
+                tabla[Texto.normalizar(pais)] = mostrar to capitalesJson.getString(pais)
+            }
+        }
+        val equivalencias = HashMap<String, String>()
+        paises.optJSONObject("alias")?.let { aliasJson ->
+            for (clave in aliasJson.keys()) {
+                equivalencias[Texto.normalizar(clave)] = Texto.normalizar(aliasJson.getString(clave))
+            }
+        }
+        capitales = tabla
+        alias = equivalencias
+    }
+
+    /** La mejor coincidencia entre lo que el usuario le enseñó, y nada más. */
+    private fun mejorAprendido(texto: String): Pair<String, Double>? {
+        val aprendidas = entradas.filter { it.fuente == "aprendido" }
+        if (aprendidas.isEmpty()) return null
+        val consulta = vectorizador.vectorizar(texto, corregir = true)
+        if (consulta.isEmpty()) return null
+        val mejor = aprendidas.maxByOrNull { Vectorizador.similitud(consulta, it.vector) } ?: return null
+        return mejor.intencion to Vectorizador.similitud(consulta, mejor.vector)
     }
 
     /** Devuelve las intenciones ordenadas de mejor a peor coincidencia. */
@@ -146,6 +191,32 @@ class Rama(
                 else "«$normalizado»\n→ «$corregido»  (Damerau-Levenshtein contra mi vocabulario)"
             )
         )
+
+        for ((nombre, comando) in Skills.COMANDOS) {
+            val salida = comando(texto, this)
+            if (salida != null) {
+                pasos.add(Paso("Comando", "reconocí una orden directa (aprender, olvidar o corregir)"))
+                memoria.registrarTurno("rama", salida)
+                return Respuesta(salida, nombre, 1.0, "comando", emptyList(), pasos)
+            }
+        }
+
+        // Lo que te enseñó el usuario manda sobre cualquier habilidad: es la
+        // forma que tiene de corregirla, y no serviría de nada si perdiera.
+        val ensenado = mejorAprendido(texto)
+        if (ensenado != null && ensenado.second >= UMBRAL_ALTO) {
+            val respuesta = elegirRespuesta(ensenado.first)
+            pasos.add(
+                Paso(
+                    "Memoria",
+                    "esto me lo enseñaste vos (parecido ${"%.3f".format(ensenado.second)}), " +
+                        "así que va antes que mis habilidades"
+                )
+            )
+            memoria.ultimaPreguntaSinRespuesta = null
+            memoria.registrarTurno("rama", respuesta)
+            return Respuesta(respuesta, ensenado.first, redondear(ensenado.second), "aprendido", emptyList(), pasos)
+        }
 
         for ((nombre, skill) in Skills.TODAS) {
             val salida = skill(texto, this)
@@ -214,22 +285,25 @@ class Rama(
                     "prefiero decir que no sé antes que inventar"
             )
         )
-        val salida = sinRespuesta(texto, mejor)
+        val salida = sinRespuesta(texto, ranking)
         memoria.registrarTurno("rama", salida)
         return Respuesta(salida, "desconocida", redondear(confianza), "fallback", candidatos, pasos)
     }
 
-    /** Admite la ignorancia y ofrece el camino para arreglarla. */
-    private fun sinRespuesta(texto: String, mejor: Triple<String, Double, String>?): String {
+    /** Admite la ignorancia, pero deja al usuario en algún lado. */
+    private fun sinRespuesta(texto: String, ranking: List<Triple<String, Double, String>>): String {
         memoria.ultimaPreguntaSinRespuesta = texto
         val base = SIN_IDEA[azar.nextInt(SIN_IDEA.size)]
-        if (mejor != null && mejor.second >= UMBRAL_PISTA) {
-            val cercano = mejor.first.replace("_", " ").replace("aprendido:", "algo que me enseñaste #")
-            return "$base Lo más cercano que tengo es «$cercano», pero no me convence. " +
-                "Si querés, enseñame con «responde: ...» o «aprende: pregunta = respuesta»."
+        val cercanos = ranking.take(2)
+            .filter { it.second >= UMBRAL_SUGERENCIA && !it.first.startsWith("aprendido:") }
+            .joinToString(", ") { it.first.replace("_", " ") }
+        if (cercanos.isNotEmpty()) {
+            return "$base De lo parecido que sí manejo: $cercanos. " +
+                "Si no era por ahí, enseñame la respuesta con «responde: ...» y queda guardada."
         }
-        return "$base Podés enseñarme escribiendo «responde: la respuesta que esperabas» " +
-            "y lo guardo para siempre."
+        return "$base Enseñame escribiendo «responde: la respuesta que esperabas» y no vuelvo a fallar " +
+            "en esto. También sé de tecnología, ciencia, capitales, cuentas, conversiones y fechas: " +
+            "probá preguntarme por ahí."
     }
 
     companion object {
@@ -237,6 +311,7 @@ class Rama(
         const val UMBRAL_ALTO = 0.42
         const val UMBRAL_BAJO = 0.20
         const val UMBRAL_PISTA = 0.09
+        const val UMBRAL_SUGERENCIA = 0.16
 
         private val SIN_IDEA = arrayOf(
             "No sé responder eso todavía.",

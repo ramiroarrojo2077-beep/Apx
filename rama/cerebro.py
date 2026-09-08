@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .memoria import Memoria
-from .skills import SKILLS
+from .skills import COMANDOS, SKILLS
 from .texto import normalizar, tokenizar
 from .vectorizador import Vectorizador, similitud
 
@@ -18,6 +18,7 @@ ARCHIVO_CONOCIMIENTO = Path(__file__).resolve().parent.parent / "data" / "conoci
 UMBRAL_ALTO = 0.42
 UMBRAL_BAJO = 0.20
 UMBRAL_PISTA = 0.09
+UMBRAL_SUGERENCIA = 0.16
 
 SIN_IDEA = (
     "No sé responder eso todavía.",
@@ -79,6 +80,8 @@ class Rama:
         self.intenciones: dict[str, list[str]] = {}
         self.entradas: list[_Entrada] = []
         self.vectorizador = Vectorizador()
+        self.capitales: dict[str, tuple[str, str]] = {}
+        self.alias: dict[str, str] = {}
         self._ultima_respuesta: dict[str, int] = {}
         self.reindexar()
 
@@ -97,6 +100,7 @@ class Rama:
         self.entradas = []
 
         datos = self._leer_conocimiento()
+        self.capitales, self.alias = self._indexar_paises(datos.get("paises", {}))
         for intencion in datos.get("intenciones", []):
             ident = intencion["id"]
             self.intenciones[ident] = list(intencion.get("respuestas", []))
@@ -112,6 +116,16 @@ class Rama:
         self.vectorizador.entrenar(e.patron for e in self.entradas)
         for entrada in self.entradas:
             entrada.vector = self.vectorizador.vectorizar(entrada.patron)
+
+    @staticmethod
+    def _indexar_paises(paises: dict[str, Any]) -> tuple[dict, dict]:
+        """Prepara la tabla de capitales para buscar sin tildes ni mayúsculas."""
+        capitales = {
+            normalizar(pais): (pais.title(), capital)
+            for pais, capital in paises.get("capitales", {}).items()
+        }
+        alias = {normalizar(k): normalizar(v) for k, v in paises.get("alias", {}).items()}
+        return capitales, alias
 
     def _leer_conocimiento(self) -> dict[str, Any]:
         try:
@@ -141,6 +155,17 @@ class Rama:
         ranking = [(i, p, f) for i, (p, f) in mejor.items() if p > 0]
         ranking.sort(key=lambda x: x[1], reverse=True)
         return ranking
+
+    def _mejor_aprendido(self, texto: str) -> tuple[str, float] | None:
+        """La mejor coincidencia entre lo que el usuario le enseñó, y nada más."""
+        aprendidas = [e for e in self.entradas if e.fuente == "aprendido"]
+        if not aprendidas:
+            return None
+        consulta = self.vectorizador.vectorizar(texto, corregir=True)
+        if not consulta:
+            return None
+        mejor = max(aprendidas, key=lambda e: similitud(consulta, e.vector))
+        return mejor.intencion, similitud(consulta, mejor.vector)
 
     def _elegir_respuesta(self, intencion: str) -> str:
         """Rota entre las respuestas de una intención para no sonar a loop."""
@@ -173,6 +198,25 @@ class Rama:
             "sin cambios: todas las palabras me suenan conocidas" if corregido == plano
             else f"«{plano}»\n→ «{corregido}»  (Damerau-Levenshtein contra mi vocabulario)",
         ))
+
+        for comando in COMANDOS:
+            salida = comando(texto, self)
+            if salida:
+                pasos.append(Paso("Comando", "reconocí una orden directa (aprender, olvidar o corregir)"))
+                self.memoria.registrar_turno("rama", salida)
+                return Respuesta(salida, comando.__name__, 1.0, "comando", pasos=pasos)
+
+        # Lo que te enseñó el usuario manda sobre cualquier habilidad: es la
+        # forma que tiene de corregirla, y no serviría de nada si perdiera.
+        ensenado = self._mejor_aprendido(texto)
+        if ensenado and ensenado[1] >= UMBRAL_ALTO:
+            respuesta = self._elegir_respuesta(ensenado[0])
+            pasos.append(Paso("Memoria",
+                              f"esto me lo enseñaste vos (parecido {ensenado[1]:.3f}), "
+                              "así que va antes que mis habilidades"))
+            self.memoria.ultima_pregunta_sin_respuesta = None
+            self.memoria.registrar_turno("rama", respuesta)
+            return Respuesta(respuesta, ensenado[0], round(ensenado[1], 4), "aprendido", pasos=pasos)
 
         for skill in SKILLS:
             salida = skill(texto, self)
@@ -233,16 +277,20 @@ class Rama:
         return Respuesta(salida, "desconocida", round(confianza, 4), "fallback", candidatos, pasos)
 
     def _sin_respuesta(self, texto: str, ranking: list[tuple[str, float, str]]) -> str:
-        """Admite la ignorancia y ofrece el camino para arreglarla."""
+        """Admite la ignorancia, pero deja al usuario en algún lado."""
         self.memoria.ultima_pregunta_sin_respuesta = texto
         base = self.azar.choice(SIN_IDEA)
-        if ranking and ranking[0][1] >= UMBRAL_PISTA:
-            cercano = ranking[0][0].replace("_", " ").replace("aprendido:", "algo que me enseñaste #")
+        cercanos = [
+            i.replace("_", " ") for i, p, _ in ranking[:2]
+            if p >= UMBRAL_SUGERENCIA and not i.startswith("aprendido:")
+        ]
+        if cercanos:
             return (
-                f"{base} Lo más cercano que tengo es «{cercano}», pero no me convence. "
-                "Si querés, enseñame con «responde: ...» o «aprende: pregunta = respuesta»."
+                f"{base} De lo parecido que sí manejo: {', '.join(cercanos)}. "
+                "Si no era por ahí, enseñame la respuesta con «responde: ...» y queda guardada."
             )
         return (
-            f"{base} Podés enseñarme escribiendo «responde: la respuesta que esperabas» "
-            "y lo guardo para siempre."
+            f"{base} Enseñame escribiendo «responde: la respuesta que esperabas» y no vuelvo a fallar "
+            "en esto. También sé de tecnología, ciencia, capitales, cuentas, conversiones y fechas: "
+            "probá preguntarme por ahí."
         )

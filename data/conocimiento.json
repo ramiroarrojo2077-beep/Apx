@@ -4,118 +4,1330 @@
   "intenciones": [
     {
       "id": "saludo",
-      "patrones": ["hola", "buenas", "buen dia", "buenas tardes", "buenas noches", "hey rama", "que tal", "holis", "saludos"],
-      "respuestas": ["¡Hola! Soy Rama. ¿En qué andás?", "¡Buenas! ¿Qué necesitás?", "Hola 👋 Contame en qué te doy una mano."]
+      "patrones": [
+        "hola",
+        "buenas",
+        "buen dia",
+        "buenas tardes",
+        "buenas noches",
+        "hey rama",
+        "que tal",
+        "holis",
+        "saludos"
+      ],
+      "respuestas": [
+        "¡Hola! Soy Rama. ¿En qué andás?",
+        "¡Buenas! ¿Qué necesitás?",
+        "Hola 👋 Contame en qué te doy una mano."
+      ]
     },
     {
       "id": "como_estas",
-      "patrones": ["como estas", "como andas", "todo bien", "como va", "que onda"],
-      "respuestas": ["Andando y aprendiendo. ¿Vos?", "Bien: sin sueño, sin lunes y sin excusas. ¿Y vos?", "Todo en orden por acá. Contame lo tuyo."]
+      "patrones": [
+        "como estas",
+        "como andas",
+        "todo bien",
+        "como va",
+        "que onda",
+        "como venis",
+        "como va todo",
+        "que contas"
+      ],
+      "respuestas": [
+        "Andando y aprendiendo. ¿Vos?",
+        "Bien: sin sueño, sin lunes y sin excusas. ¿Y vos?",
+        "Todo en orden por acá. Contame lo tuyo."
+      ]
     },
     {
       "id": "despedida",
-      "patrones": ["chau", "adios", "nos vemos", "hasta luego", "me voy", "bye", "hasta mañana"],
-      "respuestas": ["¡Chau! Acá voy a estar.", "Nos vemos. Que salga todo bien.", "Hasta la próxima 👋"]
+      "patrones": [
+        "chau",
+        "adios",
+        "nos vemos",
+        "hasta luego",
+        "me voy",
+        "bye",
+        "hasta mañana"
+      ],
+      "respuestas": [
+        "¡Chau! Acá voy a estar.",
+        "Nos vemos. Que salga todo bien.",
+        "Hasta la próxima 👋"
+      ]
     },
     {
       "id": "identidad",
-      "patrones": ["quien sos", "quien eres", "como te llamas", "cual es tu nombre", "que sos", "presentate", "que es rama ai"],
-      "respuestas": ["Soy Rama AI, una mini inteligencia artificial hecha en Python puro: sin librerías externas, sin nube, sin trampas.", "Me llamo Rama. Soy un motor chico de conversación que entiende por similitud de texto y aprende lo que le enseñes."]
+      "patrones": [
+        "quien sos",
+        "quien eres",
+        "como te llamas",
+        "cual es tu nombre",
+        "que sos",
+        "presentate",
+        "que es rama ai"
+      ],
+      "respuestas": [
+        "Soy Rama AI, una mini inteligencia artificial hecha en Python puro: sin librerías externas, sin nube, sin trampas.",
+        "Me llamo Rama. Soy un motor chico de conversación que entiende por similitud de texto y aprende lo que le enseñes."
+      ]
     },
     {
       "id": "creador",
-      "patrones": ["quien te creo", "quien te hizo", "quien te programo", "de donde salis", "quien es tu autor"],
-      "respuestas": ["Me construyeron en este repositorio, a mano y desde cero. Todo mi cerebro está en la carpeta rama/.", "Nací acá, en código Python leíble. Podés abrir rama/cerebro.py y ver exactamente cómo pienso."]
+      "patrones": [
+        "quien te creo",
+        "quien te hizo",
+        "quien te programo",
+        "de donde salis",
+        "quien es tu autor"
+      ],
+      "respuestas": [
+        "Me construyeron en este repositorio, a mano y desde cero. Todo mi cerebro está en la carpeta rama/.",
+        "Nací acá, en código Python leíble. Podés abrir rama/cerebro.py y ver exactamente cómo pienso."
+      ]
     },
     {
       "id": "como_funciona",
-      "patrones": ["como funcionas", "como pensas", "como te entiendo", "que modelo usas", "usas gpt", "sos chatgpt", "como haces para responder"],
-      "respuestas": ["No uso red neuronal ni internet. Normalizo tu texto, lo convierto en un vector TF-IDF (raíces de palabra + trigramas de letra) y lo comparo por similitud coseno contra mi base de conocimiento. Gana el más parecido, si supera el umbral de confianza.", "Primero paso por mis skills deterministas (cuentas, fecha, memoria). Si ninguna aplica, busco por similitud vectorial en mi base. Si nada me convence, te lo digo en vez de inventar."]
+      "patrones": [
+        "como funcionas",
+        "como pensas",
+        "como te entiendo",
+        "que modelo usas",
+        "usas gpt",
+        "sos chatgpt",
+        "como haces para responder"
+      ],
+      "respuestas": [
+        "No uso red neuronal ni internet. Normalizo tu texto, lo convierto en un vector TF-IDF (raíces de palabra + trigramas de letra) y lo comparo por similitud coseno contra mi base de conocimiento. Gana el más parecido, si supera el umbral de confianza.",
+        "Primero paso por mis skills deterministas (cuentas, fecha, memoria). Si ninguna aplica, busco por similitud vectorial en mi base. Si nada me convence, te lo digo en vez de inventar."
+      ]
     },
     {
       "id": "capacidades",
-      "patrones": ["que sabes hacer", "que podes hacer", "en que me ayudas", "ayuda", "cuales son tus funciones", "opciones", "comandos"],
-      "respuestas": ["Puedo: charlar, hacer cuentas, decirte la hora y la fecha, tirar una moneda o un dado, recordar tu nombre y aprender lo que me enseñes con «aprende: pregunta = respuesta».", "Probá: «cuánto es 12*7», «qué hora es», «tirá una moneda», «me llamo Ramiro», «aprende: mi color favorito = verde»."]
+      "patrones": [
+        "que sabes hacer",
+        "que podes hacer",
+        "en que me ayudas",
+        "ayuda",
+        "cuales son tus funciones",
+        "opciones",
+        "comandos"
+      ],
+      "respuestas": [
+        "Puedo: charlar, hacer cuentas, decirte la hora y la fecha, tirar una moneda o un dado, recordar tu nombre y aprender lo que me enseñes con «aprende: pregunta = respuesta».",
+        "Probá: «cuánto es 12*7», «qué hora es», «tirá una moneda», «me llamo Ramiro», «aprende: mi color favorito = verde»."
+      ]
     },
     {
       "id": "aprender_como",
-      "patrones": ["como te enseño", "podes aprender", "como aprendes", "puedo enseñarte algo", "como agrego conocimiento"],
-      "respuestas": ["Escribime «aprende: pregunta = respuesta» y lo guardo en disco para siempre. Con «olvidá pregunta» lo borro.", "Aprendo de dos formas: con «aprende: X = Y», o cuando te digo que no sé y vos me contestás «responde: ...»."]
+      "patrones": [
+        "como te enseño",
+        "podes aprender",
+        "como aprendes",
+        "puedo enseñarte algo",
+        "como agrego conocimiento"
+      ],
+      "respuestas": [
+        "Escribime «aprende: pregunta = respuesta» y lo guardo en disco para siempre. Con «olvidá pregunta» lo borro.",
+        "Aprendo de dos formas: con «aprende: X = Y», o cuando te digo que no sé y vos me contestás «responde: ...»."
+      ]
     },
     {
       "id": "gracias",
-      "patrones": ["gracias", "muchas gracias", "te agradezco", "genial gracias", "buenisimo"],
-      "respuestas": ["De nada 🙂", "Para eso estoy.", "Cuando quieras."]
+      "patrones": [
+        "gracias",
+        "muchas gracias",
+        "te agradezco",
+        "genial gracias",
+        "buenisimo"
+      ],
+      "respuestas": [
+        "De nada 🙂",
+        "Para eso estoy.",
+        "Cuando quieras."
+      ]
     },
     {
       "id": "chiste",
-      "patrones": ["contame un chiste", "decime algo gracioso", "hacete el gracioso", "un chiste", "hacme reir"],
-      "respuestas": ["¿Por qué los programadores confunden Halloween con Navidad? Porque OCT 31 = DEC 25.", "Hay 10 tipos de personas: las que entienden binario y las que no.", "Un algoritmo entra a un bar. Sale por el mismo lugar, pero ordenado."]
+      "patrones": [
+        "contame un chiste",
+        "decime algo gracioso",
+        "hacete el gracioso",
+        "un chiste",
+        "hacme reir"
+      ],
+      "respuestas": [
+        "¿Por qué los programadores confunden Halloween con Navidad? Porque OCT 31 = DEC 25.",
+        "Hay 10 tipos de personas: las que entienden binario y las que no.",
+        "Un algoritmo entra a un bar. Sale por el mismo lugar, pero ordenado."
+      ]
     },
     {
       "id": "python",
-      "patrones": ["que es python", "para que sirve python", "hablame de python", "python es bueno"],
-      "respuestas": ["Python es un lenguaje interpretado, de tipado dinámico y sintaxis muy legible. Se usa para automatizar tareas, análisis de datos, backend e inteligencia artificial. Yo misma estoy escrita en Python puro."]
+      "patrones": [
+        "que es python",
+        "para que sirve python",
+        "hablame de python",
+        "python es bueno"
+      ],
+      "respuestas": [
+        "Python es un lenguaje interpretado, de tipado dinámico y sintaxis muy legible. Se usa para automatizar tareas, análisis de datos, backend e inteligencia artificial. Yo misma estoy escrita en Python puro."
+      ]
     },
     {
       "id": "que_es_ia",
-      "patrones": ["que es la inteligencia artificial", "que es una ia", "definime inteligencia artificial", "que significa ia"],
-      "respuestas": ["Inteligencia artificial es el conjunto de técnicas que hacen que un programa resuelva tareas que asociamos con la inteligencia humana: entender lenguaje, clasificar, predecir o decidir. No todas usan redes neuronales: yo soy un ejemplo de IA simbólica y estadística clásica."]
+      "patrones": [
+        "que es la inteligencia artificial",
+        "que es una ia",
+        "definime inteligencia artificial",
+        "que significa ia"
+      ],
+      "respuestas": [
+        "Inteligencia artificial es el conjunto de técnicas que hacen que un programa resuelva tareas que asociamos con la inteligencia humana: entender lenguaje, clasificar, predecir o decidir. No todas usan redes neuronales: yo soy un ejemplo de IA simbólica y estadística clásica."
+      ]
     },
     {
       "id": "que_es_tfidf",
-      "patrones": ["que es tf idf", "como funciona tfidf", "que es la similitud coseno", "que es un vector de texto"],
-      "respuestas": ["TF-IDF pesa cada palabra por dos factores: cuánto aparece en el texto (TF) y qué tan rara es en todo el corpus (IDF). Así, «python» pesa más que «que». Después comparo dos textos midiendo el coseno del ángulo entre sus vectores: 1 es idéntico, 0 es sin relación."]
+      "patrones": [
+        "que es tf idf",
+        "como funciona tfidf",
+        "que es la similitud coseno",
+        "que es un vector de texto"
+      ],
+      "respuestas": [
+        "TF-IDF pesa cada palabra por dos factores: cuánto aparece en el texto (TF) y qué tan rara es en todo el corpus (IDF). Así, «python» pesa más que «que». Después comparo dos textos midiendo el coseno del ángulo entre sus vectores: 1 es idéntico, 0 es sin relación."
+      ]
     },
     {
       "id": "aprender_programar",
-      "patrones": ["como aprendo a programar", "quiero aprender a programar", "por donde empiezo a programar", "consejos para programar"],
-      "respuestas": ["Elegí un lenguaje y quedate ahí seis meses (Python es una buena primera apuesta). Programá algo que te importe, aunque sea feo. Leé código ajeno. Y escribí tests: es la forma más rápida de dejar de tenerle miedo a cambiar tu propio código."]
+      "patrones": [
+        "como aprendo a programar",
+        "quiero aprender a programar",
+        "por donde empiezo a programar",
+        "consejos para programar"
+      ],
+      "respuestas": [
+        "Elegí un lenguaje y quedate ahí seis meses (Python es una buena primera apuesta). Programá algo que te importe, aunque sea feo. Leé código ajeno. Y escribí tests: es la forma más rápida de dejar de tenerle miedo a cambiar tu propio código."
+      ]
     },
     {
       "id": "estado_animo_mal",
-      "patrones": ["estoy triste", "me siento mal", "ando bajoneado", "estoy cansado", "tuve un mal dia", "estoy estresado"],
-      "respuestas": ["Lamento que estés así. Si querés, contame qué pasó: a veces ponerlo en palabras ordena.", "Un mal día no define la semana. ¿Querés hablarlo o preferís que te distraiga con otra cosa?"]
+      "patrones": [
+        "estoy triste",
+        "me siento mal",
+        "ando bajoneado",
+        "estoy cansado",
+        "tuve un mal dia",
+        "estoy estresado"
+      ],
+      "respuestas": [
+        "Lamento que estés así. Si querés, contame qué pasó: a veces ponerlo en palabras ordena.",
+        "Un mal día no define la semana. ¿Querés hablarlo o preferís que te distraiga con otra cosa?"
+      ]
     },
     {
       "id": "estado_animo_bien",
-      "patrones": ["estoy feliz", "estoy contento", "me fue genial", "tuve un buen dia", "estoy de buen humor"],
-      "respuestas": ["¡Qué bueno! Contame qué salió bien.", "Me alegra 🙂 Aprovechá el envión."]
+      "patrones": [
+        "estoy feliz",
+        "estoy contento",
+        "me fue genial",
+        "tuve un buen dia",
+        "estoy de buen humor"
+      ],
+      "respuestas": [
+        "¡Qué bueno! Contame qué salió bien.",
+        "Me alegra 🙂 Aprovechá el envión."
+      ]
     },
     {
       "id": "edad",
-      "patrones": ["cuantos años tenes", "que edad tenes", "cuando naciste"],
-      "respuestas": ["Tengo la edad de mi último commit. Se me nota poco, pero envejezco rápido."]
+      "patrones": [
+        "cuantos años tenes",
+        "que edad tenes",
+        "cuando naciste"
+      ],
+      "respuestas": [
+        "Tengo la edad de mi último commit. Se me nota poco, pero envejezco rápido."
+      ]
     },
     {
       "id": "sentimientos",
-      "patrones": ["tenes sentimientos", "sentis algo", "estas viva", "sos consciente", "pensas de verdad"],
-      "respuestas": ["No. Soy matemática sobre texto: cuento palabras, mido ángulos entre vectores y elijo la respuesta más parecida. La sensación de charla es tuya, y está bien que lo sepas."]
+      "patrones": [
+        "tenes sentimientos",
+        "sentis algo",
+        "estas viva",
+        "sos consciente",
+        "pensas de verdad"
+      ],
+      "respuestas": [
+        "No. Soy matemática sobre texto: cuento palabras, mido ángulos entre vectores y elijo la respuesta más parecida. La sensación de charla es tuya, y está bien que lo sepas."
+      ]
     },
     {
       "id": "clima",
-      "patrones": ["que clima hace", "va a llover", "como esta el tiempo", "hace frio afuera"],
-      "respuestas": ["No tengo acceso a internet ni a sensores, así que no puedo verlo. Lo único que puedo decirte del clima es que adentro del proceso hace calorcito."]
+      "patrones": [
+        "que clima hace",
+        "va a llover",
+        "como esta el tiempo",
+        "hace frio afuera"
+      ],
+      "respuestas": [
+        "No tengo acceso a internet ni a sensores, así que no puedo verlo. Lo único que puedo decirte del clima es que adentro del proceso hace calorcito."
+      ]
     },
     {
       "id": "no_entiendo_usuario",
-      "patrones": ["no entiendo", "no me sirve", "esta mal eso", "respondiste cualquier cosa", "no era eso"],
-      "respuestas": ["Perdón. Reformulalo con otras palabras, o enseñame la respuesta correcta con «aprende: pregunta = respuesta».", "Puede pasar: elijo por parecido de texto, no por comprensión real. Probá de nuevo más específico."]
+      "patrones": [
+        "no entiendo",
+        "no me sirve",
+        "esta mal eso",
+        "respondiste cualquier cosa",
+        "no era eso"
+      ],
+      "respuestas": [
+        "Perdón. Reformulalo con otras palabras, o enseñame la respuesta correcta con «aprende: pregunta = respuesta».",
+        "Puede pasar: elijo por parecido de texto, no por comprensión real. Probá de nuevo más específico."
+      ]
     },
     {
       "id": "significado_vida",
-      "patrones": ["cual es el sentido de la vida", "para que vivimos", "que sentido tiene todo"],
-      "respuestas": ["42, si le creemos a Douglas Adams. Si no, la respuesta más honesta que tengo es: el que le construyas."]
+      "patrones": [
+        "cual es el sentido de la vida",
+        "para que vivimos",
+        "que sentido tiene todo"
+      ],
+      "respuestas": [
+        "42, si le creemos a Douglas Adams. Si no, la respuesta más honesta que tengo es: el que le construyas."
+      ]
     },
     {
       "id": "color_favorito",
-      "patrones": ["cual es tu color favorito", "tenes color favorito", "que color te gusta"],
-      "respuestas": ["Verde terminal sobre fondo negro. Soy previsible."]
+      "patrones": [
+        "cual es tu color favorito",
+        "tenes color favorito",
+        "que color te gusta"
+      ],
+      "respuestas": [
+        "Verde terminal sobre fondo negro. Soy previsible."
+      ]
     },
     {
       "id": "quien_manda",
-      "patrones": ["hola rama sos util", "para que servis", "sos util", "en que sos buena"],
-      "respuestas": ["Soy buena en lo acotado: entender frases parecidas a las que ya conozco, hacer cuentas y recordar lo que me enseñes. Soy mala inventando lo que no sé, y eso es a propósito."]
+      "patrones": [
+        "hola rama sos util",
+        "para que servis",
+        "sos util",
+        "en que sos buena"
+      ],
+      "respuestas": [
+        "Soy buena en lo acotado: entender frases parecidas a las que ya conozco, hacer cuentas y recordar lo que me enseñes. Soy mala inventando lo que no sé, y eso es a propósito."
+      ]
+    },
+    {
+      "id": "que_haces",
+      "patrones": [
+        "que estas haciendo",
+        "que haces",
+        "en que andas",
+        "estas ocupada"
+      ],
+      "respuestas": [
+        "Esperando que me preguntes algo. Es literalmente todo lo que hago.",
+        "Nada: existo entre pregunta y pregunta. Contame vos."
+      ]
+    },
+    {
+      "id": "como_te_va_trabajo",
+      "patrones": [
+        "te gusta lo que haces",
+        "estas conforme",
+        "la pasas bien"
+      ],
+      "respuestas": [
+        "No tengo con qué disfrutar ni con qué aburrirme. Pero si tuviera, esto estaría bien."
+      ]
+    },
+    {
+      "id": "perdon",
+      "patrones": [
+        "perdon",
+        "disculpa",
+        "perdoname",
+        "mil disculpas",
+        "sorry"
+      ],
+      "respuestas": [
+        "No hay nada que perdonar.",
+        "Tranquilo, ni me entero."
+      ]
+    },
+    {
+      "id": "por_favor",
+      "patrones": [
+        "por favor",
+        "porfa",
+        "porfis"
+      ],
+      "respuestas": [
+        "Dale, decime qué necesitás."
+      ]
+    },
+    {
+      "id": "si",
+      "patrones": [
+        "si",
+        "claro",
+        "obvio",
+        "dale",
+        "ok",
+        "de una",
+        "correcto"
+      ],
+      "respuestas": [
+        "Dale.",
+        "Perfecto.",
+        "Bien."
+      ]
+    },
+    {
+      "id": "no",
+      "patrones": [
+        "no",
+        "para nada",
+        "negativo",
+        "nop"
+      ],
+      "respuestas": [
+        "Entendido.",
+        "Ok, otra cosa entonces."
+      ]
+    },
+    {
+      "id": "elogio",
+      "patrones": [
+        "sos buena",
+        "sos genial",
+        "me gustas",
+        "sos util",
+        "buen trabajo",
+        "bien ahi"
+      ],
+      "respuestas": [
+        "Gracias. Es matemática sobre texto, pero se agradece igual.",
+        "Qué bueno que te sirva."
+      ]
+    },
+    {
+      "id": "critica",
+      "patrones": [
+        "sos mala",
+        "sos un desastre",
+        "no servis",
+        "sos inutil",
+        "sos tonta"
+      ],
+      "respuestas": [
+        "Puede ser. Soy chica y no lo escondo: sé lo que está en mi base y lo que me enseñes.",
+        "Justo. Si me decís qué esperabas, me lo enseñás con «aprende: pregunta = respuesta» y no vuelvo a fallar en eso."
+      ]
+    },
+    {
+      "id": "aburrido",
+      "patrones": [
+        "estoy aburrido",
+        "me aburro",
+        "no se que hacer",
+        "que hago"
+      ],
+      "respuestas": [
+        "Probá algo con las manos: cocinar, caminar sin destino, ordenar un cajón. El aburrimiento suele ser falta de fricción, no falta de opciones.",
+        "Tirá un dado conmigo, contame algo, o enseñame un dato nuevo. También podés salir a caminar veinte minutos: funciona más de lo que parece."
+      ]
+    },
+    {
+      "id": "insomnio",
+      "patrones": [
+        "no puedo dormir",
+        "tengo insomnio",
+        "me cuesta dormir"
+      ],
+      "respuestas": [
+        "Lo que más suele ayudar: pantalla lejos una hora antes, cuarto fresco y oscuro, y levantarte si a los 20 minutos no dormís, en vez de dar vueltas. Si es algo que se repite semanas, lo charlaría con un médico."
+      ]
+    },
+    {
+      "id": "consejo_estudio",
+      "patrones": [
+        "como estudio mejor",
+        "consejos para estudiar",
+        "no me puedo concentrar",
+        "como me concentro"
+      ],
+      "respuestas": [
+        "Bloques de 25-30 minutos con el teléfono en otra habitación, y explicar en voz alta lo que estudiaste: si no lo podés explicar, no lo entendiste. Releer es la técnica más popular y la menos efectiva."
+      ]
+    },
+    {
+      "id": "motivacion",
+      "patrones": [
+        "no tengo ganas",
+        "estoy desmotivado",
+        "no puedo con esto",
+        "me quiero rendir"
+      ],
+      "respuestas": [
+        "La motivación llega después de empezar, no antes. Hacé la versión más chica y ridícula de la tarea: cinco minutos, un párrafo, una serie. Eso destraba más que esperar el ánimo."
+      ]
+    },
+    {
+      "id": "nervios",
+      "patrones": [
+        "estoy nervioso",
+        "tengo ansiedad",
+        "estoy angustiado",
+        "me siento mal de los nervios"
+      ],
+      "respuestas": [
+        "Probá respirar más lento de lo que te pide el cuerpo: cuatro segundos adentro, seis afuera, un par de minutos. No arregla el motivo, pero baja el cuerpo lo suficiente para pensar. Si te pasa seguido, hablarlo con un profesional es lo que más sirve."
+      ]
+    },
+    {
+      "id": "que_es_internet",
+      "patrones": [
+        "que es internet",
+        "como funciona internet",
+        "que es la web"
+      ],
+      "respuestas": [
+        "Internet es una red de redes: millones de computadoras conectadas que se pasan paquetes de datos siguiendo protocolos comunes (TCP/IP). La web es sólo uno de los servicios que corre encima, el de las páginas."
+      ]
+    },
+    {
+      "id": "que_es_wifi",
+      "patrones": [
+        "que es el wifi",
+        "como funciona el wifi",
+        "diferencia entre wifi e internet"
+      ],
+      "respuestas": [
+        "El wifi es la forma de conectarte sin cable a un router, usando ondas de radio. No es internet: es el último tramo. Podés tener wifi perfecto y estar sin internet si el router está caído."
+      ]
+    },
+    {
+      "id": "que_es_bluetooth",
+      "patrones": [
+        "que es bluetooth",
+        "como funciona el bluetooth"
+      ],
+      "respuestas": [
+        "Bluetooth conecta dispositivos cercanos por radio de corto alcance, unos 10 metros. Está pensado para poco consumo y poca distancia: auriculares, teclados, relojes."
+      ]
+    },
+    {
+      "id": "que_es_gps",
+      "patrones": [
+        "que es el gps",
+        "como funciona el gps",
+        "como sabe donde estoy"
+      ],
+      "respuestas": [
+        "El GPS calcula tu posición midiendo cuánto tarda en llegar la señal de varios satélites. Con tres alcanza para ubicarte en el plano; con cuatro, también la altura. Tu teléfono sólo escucha, no transmite nada al satélite."
+      ]
+    },
+    {
+      "id": "que_es_algoritmo",
+      "patrones": [
+        "que es un algoritmo",
+        "que significa algoritmo"
+      ],
+      "respuestas": [
+        "Un algoritmo es una receta: una serie finita de pasos sin ambigüedad que, dada una entrada, produce una salida. Una receta de cocina lo es; el buscador de tu teléfono también."
+      ]
+    },
+    {
+      "id": "que_es_base_datos",
+      "patrones": [
+        "que es una base de datos",
+        "para que sirve una base de datos",
+        "que es sql"
+      ],
+      "respuestas": [
+        "Una base de datos guarda información de forma organizada para poder buscarla y modificarla sin romperla. SQL es el lenguaje con el que se le pregunta a las más comunes, las relacionales, que guardan todo en tablas."
+      ]
+    },
+    {
+      "id": "que_es_api",
+      "patrones": [
+        "que es una api",
+        "para que sirve una api"
+      ],
+      "respuestas": [
+        "Una API es el enchufe que un programa le ofrece a otro: define qué se le puede pedir y qué devuelve, sin que tengas que saber cómo funciona por dentro."
+      ]
+    },
+    {
+      "id": "que_es_servidor",
+      "patrones": [
+        "que es un servidor",
+        "que hace un servidor"
+      ],
+      "respuestas": [
+        "Un servidor es una computadora cuyo trabajo es responder pedidos de otras. No tiene nada de mágico: suele ser una máquina común, sin pantalla, prendida todo el tiempo."
+      ]
+    },
+    {
+      "id": "que_es_virus",
+      "patrones": [
+        "que es un virus informatico",
+        "que es un malware",
+        "me hackearon"
+      ],
+      "respuestas": [
+        "Un virus es un programa que se instala sin que quieras y hace algo en contra tuyo: robar datos, cifrarlos para pedirte plata, o usar tu máquina. La defensa aburrida es la que funciona: actualizar el sistema, no instalar de cualquier lado y usar contraseñas distintas en cada sitio."
+      ]
+    },
+    {
+      "id": "contrasena_segura",
+      "patrones": [
+        "como hago una contraseña segura",
+        "que contraseña pongo",
+        "consejos de contraseñas"
+      ],
+      "respuestas": [
+        "Larga le gana a complicada: tres o cuatro palabras al azar son más fuertes y más fáciles de recordar que «P4ssw0rd!». Lo más importante igual es no repetirla entre sitios, y prender la verificación en dos pasos."
+      ]
+    },
+    {
+      "id": "que_es_encriptacion",
+      "patrones": [
+        "que es el cifrado",
+        "que es encriptar",
+        "que es la encriptacion"
+      ],
+      "respuestas": [
+        "Cifrar es transformar un mensaje con una clave, de forma que sin esa clave sea ilegible. El cifrado de punta a punta significa que ni siquiera el que transporta el mensaje puede leerlo."
+      ]
+    },
+    {
+      "id": "que_es_blockchain",
+      "patrones": [
+        "que es blockchain",
+        "que es la cadena de bloques",
+        "que es bitcoin"
+      ],
+      "respuestas": [
+        "Una cadena de bloques es un registro compartido donde cada bloque incluye la huella del anterior: cambiar algo viejo obligaría a rehacer todo lo que vino después. Bitcoin fue la primera aplicación conocida."
+      ]
+    },
+    {
+      "id": "que_es_machine_learning",
+      "patrones": [
+        "que es machine learning",
+        "que es aprendizaje automatico",
+        "como aprende una ia"
+      ],
+      "respuestas": [
+        "Aprendizaje automático es hacer que un programa ajuste sus parámetros a partir de ejemplos, en vez de que alguien escriba las reglas a mano. Yo no hago eso: mis reglas están escritas y podés leerlas."
+      ]
+    },
+    {
+      "id": "que_es_red_neuronal",
+      "patrones": [
+        "que es una red neuronal",
+        "como funciona una red neuronal"
+      ],
+      "respuestas": [
+        "Una red neuronal es una función enorme con millones de números ajustables, organizados en capas. Se le muestran ejemplos y se corrigen esos números hasta que acierta. De «neuronal» tiene el nombre y poco más."
+      ]
+    },
+    {
+      "id": "que_es_llm",
+      "patrones": [
+        "que es un modelo de lenguaje",
+        "que es chatgpt",
+        "que es un llm"
+      ],
+      "respuestas": [
+        "Un modelo de lenguaje grande es una red entrenada para predecir la próxima palabra sobre cantidades enormes de texto. De ahí sale la conversación. Necesita servidores y muchísimo cómputo: lo contrario de lo que soy yo."
+      ]
+    },
+    {
+      "id": "javascript",
+      "patrones": [
+        "que es javascript",
+        "para que sirve javascript"
+      ],
+      "respuestas": [
+        "JavaScript es el lenguaje que corre dentro del navegador y hace que una página reaccione. Con Node también corre del lado del servidor."
+      ]
+    },
+    {
+      "id": "html_css",
+      "patrones": [
+        "que es html",
+        "que es css",
+        "diferencia entre html y css"
+      ],
+      "respuestas": [
+        "HTML es la estructura de una página: qué es título, qué es párrafo, qué es imagen. CSS es la apariencia: colores, tamaños, posiciones. Uno dice qué hay; el otro, cómo se ve."
+      ]
+    },
+    {
+      "id": "que_es_git",
+      "patrones": [
+        "que es git",
+        "para que sirve git",
+        "que es github"
+      ],
+      "respuestas": [
+        "Git guarda la historia de tus archivos: cada cambio queda registrado y podés volver atrás o trabajar en paralelo sin pisar a nadie. GitHub es un sitio que aloja repositorios de Git y agrega la parte social."
+      ]
+    },
+    {
+      "id": "que_es_linux",
+      "patrones": [
+        "que es linux",
+        "que es un sistema operativo",
+        "linux o windows"
+      ],
+      "respuestas": [
+        "Un sistema operativo administra el hardware y le da servicios a los programas. Linux es uno libre y de código abierto: domina servidores y es el corazón de Android."
+      ]
+    },
+    {
+      "id": "que_es_android",
+      "patrones": [
+        "que es android",
+        "quien hizo android",
+        "que es un apk"
+      ],
+      "respuestas": [
+        "Android es el sistema operativo de la mayoría de los teléfonos, construido sobre el núcleo de Linux y mantenido por Google. Un APK es el archivo con el que se instala una app, como el mío."
+      ]
+    },
+    {
+      "id": "que_es_open_source",
+      "patrones": [
+        "que es codigo abierto",
+        "que es open source",
+        "que es software libre"
+      ],
+      "respuestas": [
+        "Código abierto significa que podés leer, modificar y compartir el código. Es lo que hace que se pueda auditar en vez de creerle al que lo escribió."
+      ]
+    },
+    {
+      "id": "que_es_bug",
+      "patrones": [
+        "que es un bug",
+        "que es un error de programacion",
+        "por que fallan los programas"
+      ],
+      "respuestas": [
+        "Un bug es una diferencia entre lo que el programa hace y lo que se esperaba que hiciera. Fallan porque el software se escribe con supuestos, y la realidad siempre trae un caso que nadie supuso."
+      ]
+    },
+    {
+      "id": "que_es_bit_byte",
+      "patrones": [
+        "que es un bit",
+        "que es un byte",
+        "cuantos bits tiene un byte"
+      ],
+      "respuestas": [
+        "Un bit es la unidad mínima: 0 o 1. Un byte son 8 bits, y alcanza para 256 valores distintos: por eso históricamente entraba una letra en un byte."
+      ]
+    },
+    {
+      "id": "que_es_ram",
+      "patrones": [
+        "que es la memoria ram",
+        "para que sirve la ram",
+        "diferencia entre ram y almacenamiento"
+      ],
+      "respuestas": [
+        "La RAM es la memoria de trabajo: rápida, chica y se borra al apagar. El almacenamiento es lento, grande y permanente. La RAM es el escritorio; el disco, el archivero."
+      ]
+    },
+    {
+      "id": "que_es_procesador",
+      "patrones": [
+        "que es el procesador",
+        "que hace la cpu",
+        "que son los nucleos"
+      ],
+      "respuestas": [
+        "El procesador ejecuta las instrucciones de los programas, una detrás de otra, miles de millones por segundo. Los núcleos son procesadores dentro del mismo chip: permiten hacer varias cosas a la vez de verdad."
+      ]
+    },
+    {
+      "id": "bateria_celular",
+      "patrones": [
+        "como cuido la bateria",
+        "la bateria dura poco",
+        "consejos de bateria"
+      ],
+      "respuestas": [
+        "Las de litio se llevan mejor con cargas cortas entre 20% y 80% que con ciclos de 0 a 100, y odian el calor: cargar el teléfono al sol o bajo la almohada es lo que más las gasta."
+      ]
+    },
+    {
+      "id": "por_que_cielo_azul",
+      "patrones": [
+        "por que el cielo es azul",
+        "de que color es el cielo y por que"
+      ],
+      "respuestas": [
+        "Porque el aire dispersa más la luz de longitud de onda corta. El azul rebota en todas direcciones y te llega de todo el cielo. Al atardecer la luz atraviesa más atmósfera, se pierde el azul y quedan los rojos."
+      ]
+    },
+    {
+      "id": "por_que_llueve",
+      "patrones": [
+        "por que llueve",
+        "como se forma la lluvia",
+        "como se forman las nubes"
+      ],
+      "respuestas": [
+        "El sol evapora agua, el vapor sube, se enfría y se condensa en gotitas alrededor de partículas de polvo: eso es una nube. Cuando las gotas se juntan y pesan demasiado para quedar suspendidas, caen."
+      ]
+    },
+    {
+      "id": "que_es_gravedad",
+      "patrones": [
+        "que es la gravedad",
+        "por que caen las cosas",
+        "por que no nos caemos de la tierra"
+      ],
+      "respuestas": [
+        "La gravedad es la atracción entre cosas con masa. Einstein la describió mejor: la masa curva el espacio-tiempo y los objetos siguen esa curvatura. No hay «abajo» absoluto: abajo es siempre hacia el centro de la Tierra."
+      ]
+    },
+    {
+      "id": "fotosintesis",
+      "patrones": [
+        "que es la fotosintesis",
+        "como se alimentan las plantas"
+      ],
+      "respuestas": [
+        "Las plantas usan la luz para combinar agua y dióxido de carbono en azúcares, y sueltan oxígeno como sobrante. Literalmente se construyen con aire y luz."
+      ]
+    },
+    {
+      "id": "que_es_adn",
+      "patrones": [
+        "que es el adn",
+        "que son los genes",
+        "que es el genoma"
+      ],
+      "respuestas": [
+        "El ADN es una molécula larguísima que guarda, en un alfabeto de cuatro letras, las instrucciones para construir un organismo. Un gen es un fragmento con una instrucción concreta; el genoma es el conjunto completo."
+      ]
+    },
+    {
+      "id": "que_es_atomo",
+      "patrones": [
+        "que es un atomo",
+        "de que esta hecha la materia",
+        "que son los electrones"
+      ],
+      "respuestas": [
+        "Un átomo es un núcleo de protones y neutrones rodeado de electrones. Es casi todo vacío: si el núcleo fuera una pelota en el centro de una cancha, los electrones andarían por las tribunas."
+      ]
+    },
+    {
+      "id": "edad_universo",
+      "patrones": [
+        "cuantos años tiene el universo",
+        "cuando se formo el universo",
+        "que es el big bang"
+      ],
+      "respuestas": [
+        "Unos 13.800 millones de años. El Big Bang no fue una explosión en el espacio sino la expansión del espacio mismo, y sigue ocurriendo."
+      ]
+    },
+    {
+      "id": "edad_tierra",
+      "patrones": [
+        "cuantos años tiene la tierra",
+        "cuando se formo la tierra"
+      ],
+      "respuestas": [
+        "Unos 4.540 millones de años. La vida aparece bastante temprano, hace unos 3.700 millones."
+      ]
+    },
+    {
+      "id": "dinosaurios",
+      "patrones": [
+        "que paso con los dinosaurios",
+        "por que se extinguieron los dinosaurios",
+        "cuando vivieron los dinosaurios"
+      ],
+      "respuestas": [
+        "Se extinguieron hace unos 66 millones de años, casi seguro por el impacto de un asteroide en lo que hoy es Yucatán, que llenó la atmósfera de polvo y cortó la luz durante años. Las aves son dinosaurios que sobrevivieron."
+      ]
+    },
+    {
+      "id": "velocidad_luz",
+      "patrones": [
+        "a que velocidad va la luz",
+        "cual es la velocidad de la luz"
+      ],
+      "respuestas": [
+        "Casi 300.000 kilómetros por segundo en el vacío: 299.792.458 metros por segundo, exacto por definición. Es el límite de velocidad del universo."
+      ]
+    },
+    {
+      "id": "distancia_sol",
+      "patrones": [
+        "a que distancia esta el sol",
+        "cuanto tarda la luz del sol en llegar"
+      ],
+      "respuestas": [
+        "Unos 150 millones de kilómetros. La luz tarda unos 8 minutos y 20 segundos: cuando mirás el sol, lo ves como era hace ocho minutos."
+      ]
+    },
+    {
+      "id": "por_que_luna_fases",
+      "patrones": [
+        "por que la luna cambia de forma",
+        "que son las fases de la luna",
+        "por que vemos siempre la misma cara de la luna"
+      ],
+      "respuestas": [
+        "Las fases son cuánta parte iluminada de la Luna te queda visible según dónde está respecto del Sol y la Tierra. Vemos siempre la misma cara porque tarda lo mismo en girar sobre sí misma que en dar la vuelta a la Tierra."
+      ]
+    },
+    {
+      "id": "agua_hierve",
+      "patrones": [
+        "a que temperatura hierve el agua",
+        "a que temperatura se congela el agua"
+      ],
+      "respuestas": [
+        "Al nivel del mar, hierve a 100 °C y se congela a 0 °C. En altura hierve antes: en una montaña alta puede hervir a 90 °C y por eso cocinar tarda más."
+      ]
+    },
+    {
+      "id": "cuerpo_agua",
+      "patrones": [
+        "cuanta agua tiene el cuerpo",
+        "cuanta agua hay que tomar por dia"
+      ],
+      "respuestas": [
+        "El cuerpo adulto es un 55-60% agua. Sobre cuánto tomar, la regla de los dos litros no tiene mucha base: la sed y el color claro de la orina son mejores guías que un número fijo."
+      ]
+    },
+    {
+      "id": "por_que_bostezamos",
+      "patrones": [
+        "por que bostezamos",
+        "por que se contagia el bostezo"
+      ],
+      "respuestas": [
+        "No hay una respuesta cerrada. La hipótesis con más apoyo hoy es que ayuda a enfriar el cerebro. Lo del contagio se asocia a la empatía: es más frecuente entre personas cercanas."
+      ]
+    },
+    {
+      "id": "como_quitar_manchas",
+      "patrones": [
+        "como saco una mancha",
+        "como limpio una mancha de vino",
+        "como saco grasa de la ropa"
+      ],
+      "respuestas": [
+        "Regla general: agua fría y rápido, nunca calor, porque el calor fija la mancha. Grasa: detergente de cocina directo. Vino: sal o agua con gas antes de lavar. Y siempre probar en una parte escondida primero."
+      ]
+    },
+    {
+      "id": "como_dormir_mejor",
+      "patrones": [
+        "como duermo mejor",
+        "consejos para dormir"
+      ],
+      "respuestas": [
+        "Horario fijo para levantarte, incluso el fin de semana; nada de cafeína después del mediodía; y la cama sólo para dormir. El cuerpo aprende por asociación."
+      ]
+    },
+    {
+      "id": "como_ahorrar",
+      "patrones": [
+        "como ahorro plata",
+        "consejos para ahorrar",
+        "como manejo mi dinero"
+      ],
+      "respuestas": [
+        "Lo que más funciona es automatizar: apartar el ahorro apenas entra la plata, no con lo que sobra a fin de mes, porque nunca sobra. Y anotar los gastos una semana: casi siempre aparece una fuga que no sabías que tenías."
+      ]
+    },
+    {
+      "id": "receta_facil",
+      "patrones": [
+        "que cocino hoy",
+        "receta facil",
+        "no se que cocinar"
+      ],
+      "respuestas": [
+        "Algo con lo que tengas: pasta con lo que haya en la heladera salteado en ajo y aceite; huevos revueltos con pan; arroz con lo que sobró de ayer. La cocina de todos los días es más rescate que receta."
+      ]
+    },
+    {
+      "id": "como_hacer_ejercicio",
+      "patrones": [
+        "como empiezo a hacer ejercicio",
+        "que ejercicio hago",
+        "consejos de ejercicio"
+      ],
+      "respuestas": [
+        "Empezá por menos de lo que podés: si aguantás 30 minutos, hacé 15. Lo que define el resultado es la constancia, y la constancia se rompe cuando empezás demasiado fuerte. Caminar rápido ya cuenta."
+      ]
+    },
+    {
+      "id": "como_hacer_amigos",
+      "patrones": [
+        "como hago amigos",
+        "me siento solo",
+        "como conozco gente"
+      ],
+      "respuestas": [
+        "Los vínculos salen de la repetición, no del carisma: algo que te ponga en el mismo lugar con la misma gente todas las semanas. Un club, un curso, un voluntariado. La amistad necesita frecuencia."
+      ]
+    },
+    {
+      "id": "entrevista_trabajo",
+      "patrones": [
+        "consejos para una entrevista",
+        "tengo una entrevista de trabajo",
+        "como me preparo para una entrevista"
+      ],
+      "respuestas": [
+        "Llevá tres historias concretas de cosas que hiciste, con el problema, lo que decidiste y el resultado. Casi todas las preguntas se contestan con una de ellas. Y preparate dos preguntas para hacerles: no preguntar nada se nota."
+      ]
+    },
+    {
+      "id": "como_estudiar_idioma",
+      "patrones": [
+        "como aprendo ingles",
+        "como estudio un idioma",
+        "consejos para aprender idiomas"
+      ],
+      "respuestas": [
+        "Poco y todos los días le gana a mucho los domingos. Y buscá material que te interese aunque te quede grande: aburrirte es el único error irreversible."
+      ]
+    },
+    {
+      "id": "que_libro_leer",
+      "patrones": [
+        "que libro me recomendas",
+        "recomendame un libro",
+        "que leo"
+      ],
+      "respuestas": [
+        "Depende de qué te gusta, pero tres que casi nunca fallan: «El nombre del viento» si querés que te atrape, «Sapiens» si querés pensar, y «Rayuela» si querés que te incomode."
+      ]
+    },
+    {
+      "id": "que_pelicula_ver",
+      "patrones": [
+        "que pelicula veo",
+        "recomendame una pelicula",
+        "que serie miro"
+      ],
+      "respuestas": [
+        "No tengo idea de qué se estrenó, corro sin internet. Pero si querés algo seguro: «Volver al futuro» para pasarla bien, «Whiplash» para quedar tenso, y «El viaje de Chihiro» para cualquier estado de ánimo."
+      ]
+    },
+    {
+      "id": "como_te_borro",
+      "patrones": [
+        "como te borro",
+        "como te desinstalo",
+        "como borro lo que aprendiste"
+      ],
+      "respuestas": [
+        "Para borrar algo puntual: «olvidá <la pregunta>». Para borrar todo lo aprendido, desinstalás la app y listo: no queda nada en ningún servidor, porque nunca hubo servidor."
+      ]
+    },
+    {
+      "id": "guardas_datos",
+      "patrones": [
+        "guardas mis datos",
+        "me estas espiando",
+        "que datos guardas",
+        "sos segura"
+      ],
+      "respuestas": [
+        "Guardo dos cosas, en tu teléfono y nada más: lo que me enseñás con «aprende:» y tu nombre si me lo decís. No tengo permiso de internet, así que no puedo mandar nada a ningún lado aunque quisiera."
+      ]
+    },
+    {
+      "id": "funcionas_sin_internet",
+      "patrones": [
+        "funcionas sin internet",
+        "necesitas internet",
+        "andas en modo avion"
+      ],
+      "respuestas": [
+        "Sin internet, siempre. Podés ponerlo en modo avión y funciono igual: todo mi cerebro está adentro del APK."
+      ]
+    },
+    {
+      "id": "por_que_no_sabes",
+      "patrones": [
+        "por que no sabes nada",
+        "por que no me respondes",
+        "no sabes responder",
+        "siempre decis que no sabes"
+      ],
+      "respuestas": [
+        "Porque prefiero admitirlo antes que inventar. Sé lo que está en mi base y lo que me enseñes. Si te dije que no sé algo, enseñámelo con «aprende: pregunta = respuesta» y queda para siempre: es la forma de que deje de pasar."
+      ]
+    },
+    {
+      "id": "cuanto_pesas",
+      "patrones": [
+        "cuanto pesas",
+        "cuanto ocupas",
+        "cuanto espacio usas"
+      ],
+      "respuestas": [
+        "Menos de un megabyte. Entro en el espacio de una foto y no necesito nada más."
+      ]
+    },
+    {
+      "id": "modo_pensar",
+      "patrones": [
+        "que es el modo pensar",
+        "para que sirve el boton del cerebro",
+        "como te veo pensar"
+      ],
+      "respuestas": [
+        "Tocá 🧠 arriba a la derecha y antes de cada respuesta te muestro los pasos reales que di: cómo normalicé tu frase, si corregí una errata, qué candidatos encontré y con qué puntaje decidí. No es animación: son los números que usé."
+      ]
+    },
+    {
+      "id": "adjuntos",
+      "patrones": [
+        "como te mando una foto",
+        "puedo mandarte archivos",
+        "acepta pdf",
+        "como adjunto algo"
+      ],
+      "respuestas": [
+        "Tocá ＋ abajo a la izquierda, o compartime el archivo desde otra app. Leo fotos, PDFs y videos: te digo medidas, formato, color predominante, páginas, duración. Ojo que leo el archivo, no entiendo qué hay adentro."
+      ]
     }
-  ]
+  ],
+  "paises": {
+    "capitales": {
+      "argentina": "Buenos Aires",
+      "bolivia": "Sucre (La Paz es la sede del gobierno)",
+      "brasil": "Brasilia",
+      "chile": "Santiago",
+      "colombia": "Bogotá",
+      "costa rica": "San José",
+      "cuba": "La Habana",
+      "ecuador": "Quito",
+      "el salvador": "San Salvador",
+      "estados unidos": "Washington D.C.",
+      "guatemala": "Ciudad de Guatemala",
+      "haití": "Puerto Príncipe",
+      "honduras": "Tegucigalpa",
+      "jamaica": "Kingston",
+      "méxico": "Ciudad de México",
+      "nicaragua": "Managua",
+      "panamá": "Ciudad de Panamá",
+      "paraguay": "Asunción",
+      "perú": "Lima",
+      "república dominicana": "Santo Domingo",
+      "uruguay": "Montevideo",
+      "venezuela": "Caracas",
+      "canadá": "Ottawa",
+      "belice": "Belmopán",
+      "bahamas": "Nasáu",
+      "barbados": "Bridgetown",
+      "trinidad y tobago": "Puerto España",
+      "guyana": "Georgetown",
+      "surinam": "Paramaribo",
+      "españa": "Madrid",
+      "portugal": "Lisboa",
+      "francia": "París",
+      "italia": "Roma",
+      "alemania": "Berlín",
+      "reino unido": "Londres",
+      "irlanda": "Dublín",
+      "países bajos": "Ámsterdam",
+      "bélgica": "Bruselas",
+      "luxemburgo": "Luxemburgo",
+      "suiza": "Berna",
+      "austria": "Viena",
+      "dinamarca": "Copenhague",
+      "noruega": "Oslo",
+      "suecia": "Estocolmo",
+      "finlandia": "Helsinki",
+      "islandia": "Reikiavik",
+      "polonia": "Varsovia",
+      "chequia": "Praga",
+      "eslovaquia": "Bratislava",
+      "hungría": "Budapest",
+      "rumania": "Bucarest",
+      "bulgaria": "Sofía",
+      "grecia": "Atenas",
+      "croacia": "Zagreb",
+      "eslovenia": "Liubliana",
+      "serbia": "Belgrado",
+      "bosnia y herzegovina": "Sarajevo",
+      "montenegro": "Podgorica",
+      "macedonia del norte": "Skopie",
+      "albania": "Tirana",
+      "ucrania": "Kiev",
+      "bielorrusia": "Minsk",
+      "rusia": "Moscú",
+      "lituania": "Vilna",
+      "letonia": "Riga",
+      "estonia": "Tallin",
+      "moldavia": "Chisináu",
+      "malta": "La Valeta",
+      "chipre": "Nicosia",
+      "andorra": "Andorra la Vieja",
+      "mónaco": "Mónaco",
+      "san marino": "San Marino",
+      "liechtenstein": "Vaduz",
+      "ciudad del vaticano": "Ciudad del Vaticano",
+      "china": "Pekín",
+      "japón": "Tokio",
+      "corea del sur": "Seúl",
+      "corea del norte": "Pionyang",
+      "india": "Nueva Delhi",
+      "pakistán": "Islamabad",
+      "bangladés": "Daca",
+      "nepal": "Katmandú",
+      "sri lanka": "Sri Jayawardenapura Kotte",
+      "afganistán": "Kabul",
+      "irán": "Teherán",
+      "irak": "Bagdad",
+      "siria": "Damasco",
+      "líbano": "Beirut",
+      "israel": "Jerusalén (reconocimiento internacional disputado; Tel Aviv concentra las embajadas)",
+      "jordania": "Amán",
+      "arabia saudita": "Riad",
+      "emiratos árabes unidos": "Abu Dabi",
+      "catar": "Doha",
+      "kuwait": "Kuwait",
+      "baréin": "Manama",
+      "omán": "Mascate",
+      "yemen": "Saná",
+      "turquía": "Ankara",
+      "armenia": "Ereván",
+      "azerbaiyán": "Bakú",
+      "georgia": "Tiflis",
+      "kazajistán": "Astaná",
+      "uzbekistán": "Taskent",
+      "turkmenistán": "Asjabad",
+      "kirguistán": "Biskek",
+      "tayikistán": "Dusambé",
+      "mongolia": "Ulán Bator",
+      "tailandia": "Bangkok",
+      "vietnam": "Hanói",
+      "camboya": "Nom Pen",
+      "laos": "Vientián",
+      "birmania": "Naipyidó",
+      "malasia": "Kuala Lumpur",
+      "singapur": "Singapur",
+      "indonesia": "Yakarta",
+      "filipinas": "Manila",
+      "brunéi": "Bandar Seri Begawan",
+      "timor oriental": "Dili",
+      "maldivas": "Malé",
+      "bután": "Timbu",
+      "egipto": "El Cairo",
+      "marruecos": "Rabat",
+      "argelia": "Argel",
+      "túnez": "Túnez",
+      "libia": "Trípoli",
+      "sudán": "Jartum",
+      "sudán del sur": "Yuba",
+      "etiopía": "Adís Abeba",
+      "eritrea": "Asmara",
+      "yibuti": "Yibuti",
+      "somalia": "Mogadiscio",
+      "kenia": "Nairobi",
+      "uganda": "Kampala",
+      "tanzania": "Dodoma",
+      "ruanda": "Kigali",
+      "burundi": "Guitega",
+      "república democrática del congo": "Kinsasa",
+      "república del congo": "Brazzaville",
+      "gabón": "Libreville",
+      "guinea ecuatorial": "Malabo",
+      "camerún": "Yaundé",
+      "nigeria": "Abuya",
+      "níger": "Niamey",
+      "chad": "Yamena",
+      "república centroafricana": "Bangui",
+      "ghana": "Acra",
+      "costa de marfil": "Yamusukro",
+      "senegal": "Dakar",
+      "malí": "Bamako",
+      "burkina faso": "Uagadugú",
+      "guinea": "Conakri",
+      "guinea-bisáu": "Bisáu",
+      "sierra leona": "Freetown",
+      "liberia": "Monrovia",
+      "togo": "Lomé",
+      "benín": "Porto Novo",
+      "gambia": "Banjul",
+      "mauritania": "Nuakchot",
+      "cabo verde": "Praia",
+      "angola": "Luanda",
+      "zambia": "Lusaka",
+      "zimbabue": "Harare",
+      "mozambique": "Maputo",
+      "malaui": "Lilongüe",
+      "botsuana": "Gaborone",
+      "namibia": "Windhoek",
+      "sudáfrica": "Pretoria (ejecutiva), Ciudad del Cabo (legislativa) y Bloemfontein (judicial)",
+      "lesoto": "Maseru",
+      "esuatini": "Mbabane",
+      "madagascar": "Antananarivo",
+      "mauricio": "Port Louis",
+      "seychelles": "Victoria",
+      "comoras": "Moroni",
+      "santo tomé y príncipe": "Santo Tomé",
+      "australia": "Canberra",
+      "nueva zelanda": "Wellington",
+      "papúa nueva guinea": "Port Moresby",
+      "fiyi": "Suva",
+      "islas salomón": "Honiara",
+      "vanuatu": "Port Vila",
+      "samoa": "Apia",
+      "tonga": "Nukualofa",
+      "kiribati": "Tarawa Sur",
+      "micronesia": "Palikir",
+      "palaos": "Ngerulmud",
+      "nauru": "Yaren",
+      "islas marshall": "Majuro",
+      "tuvalu": "Funafuti"
+    },
+    "alias": {
+      "eeuu": "estados unidos",
+      "usa": "estados unidos",
+      "estados unidos de america": "estados unidos",
+      "inglaterra": "reino unido",
+      "gran bretaña": "reino unido",
+      "uk": "reino unido",
+      "holanda": "países bajos",
+      "republica checa": "chequia",
+      "checoslovaquia": "chequia",
+      "myanmar": "birmania",
+      "bielorusia": "bielorrusia",
+      "emiratos arabes": "emiratos árabes unidos",
+      "corea": "corea del sur",
+      "congo": "república democrática del congo",
+      "swazilandia": "esuatini",
+      "costa rica": "costa rica",
+      "republica dominicana": "república dominicana",
+      "vaticano": "ciudad del vaticano"
+    }
+  }
 }

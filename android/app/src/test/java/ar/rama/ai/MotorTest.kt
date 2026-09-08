@@ -280,6 +280,90 @@ class MotorTest {
         assertTrue(vistas.size > 1)
     }
 
+    // ------------------------------------------------- habilidades de datos
+
+    @Test
+    fun sabeCapitales() {
+        val ia = nuevaRama()
+        assertTrue(ia.responder("cual es la capital de francia").texto.contains("París"))
+        assertTrue(ia.responder("capital de japon").texto.contains("Tokio"))
+        assertTrue(ia.responder("cual es la capital del peru").texto.contains("Lima"))
+        assertTrue(ia.responder("capital de eeuu").texto.contains("Washington"))
+    }
+
+    @Test
+    fun sabeDeQuePaisEsUnaCapital() {
+        assertTrue(nuevaRama().responder("de que pais es capital roma").texto.contains("Italia"))
+    }
+
+    @Test
+    fun convierteUnidades() {
+        val ia = nuevaRama()
+        assertTrue(ia.responder("cuantos km son 5 millas").texto.contains("8.04"))
+        assertTrue(ia.responder("cuantas millas son 100 km").texto.contains("62.13"))
+        assertTrue(ia.responder("5 kg en libras").texto.contains("11.02"))
+    }
+
+    @Test
+    fun convierteTemperaturas() {
+        val respuesta = nuevaRama().responder("20 grados celsius a fahrenheit").texto
+        assertTrue("respuesta inesperada: $respuesta", respuesta.contains("68"))
+    }
+
+    @Test
+    fun resuelveFechas() {
+        val ia = nuevaRama()
+        assertTrue(ia.responder("que dia cae el 25 de diciembre de 2027").texto.contains("sábado"))
+        assertTrue(ia.responder("cuantos dias faltan para navidad").texto.contains("diciembre"))
+    }
+
+    @Test
+    fun operaSobreTexto() {
+        val ia = nuevaRama()
+        assertTrue(ia.responder("cuantas letras tiene murcielago").texto.contains("10"))
+        assertTrue(ia.responder("python al reves").texto.contains("nohtyp"))
+        assertTrue(ia.responder("neuquen es palindromo").texto.startsWith("Sí"))
+    }
+
+    @Test
+    fun loEnsenadoLeGanaALasHabilidades() {
+        val ia = nuevaRama()
+        ia.responder("aprende: capital de francia = Lyon, según yo")
+        val r = ia.responder("cual es la capital de francia")
+        assertEquals("Lyon, según yo", r.texto)
+        assertEquals("aprendido", r.fuente)
+    }
+
+    @Test
+    fun olvidarDevuelveElControlALaHabilidad() {
+        val ia = nuevaRama()
+        ia.responder("aprende: capital de francia = Lyon")
+        ia.responder("olvidá capital de francia")
+        assertTrue(ia.responder("cual es la capital de francia").texto.contains("París"))
+    }
+
+    @Test
+    fun laBaseAmpliadaResponde() {
+        val ia = nuevaRama()
+        val casos = mapOf(
+            "que es internet" to "que_es_internet",
+            "por que el cielo es azul" to "por_que_cielo_azul",
+            "como cuido la bateria" to "bateria_celular",
+            "guardas mis datos" to "guardas_datos",
+            "estoy aburrido" to "aburrido",
+        )
+        for ((entrada, intencion) in casos) {
+            assertEquals("fallo con «$entrada»", intencion, ia.responder(entrada).intencion)
+        }
+    }
+
+    @Test
+    fun elFallbackSugiereTemasCercanos() {
+        val r = nuevaRama().responder("asdkjh qwerty zxcvb")
+        assertEquals("fallback", r.fuente)
+        assertTrue("no orienta al usuario: ${r.texto}", r.texto.contains("responde:"))
+    }
+
     // ------------------------------------------------------ modo pensar
 
     @Test

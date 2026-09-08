@@ -21,8 +21,32 @@ android {
         applicationId = "ar.rama.ai"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "2.0.0"
+
+        // Sólo 64 bits: es lo que tiene cualquier teléfono desde 2017, y cada
+        // arquitectura extra duplica el tiempo de compilar llama.cpp.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += listOf(
+                    "-DCMAKE_BUILD_TYPE=Release",
+                    "-DGGML_OPENMP=OFF",   // Android no trae libomp
+                    "-DGGML_NATIVE=OFF",   // se compila cruzado: nada de -march=native
+                )
+                cppFlags += "-O3"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     buildTypes {

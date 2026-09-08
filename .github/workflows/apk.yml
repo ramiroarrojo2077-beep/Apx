@@ -18,7 +18,8 @@ jobs:
     name: Construir e instalar Rama AI
     runs-on: ubuntu-latest
     # Un build colgado no debe quemar horas de runner: que falle y se vea.
-    timeout-minutes: 20
+    # Compilar llama.cpp para ARM lleva bastante más que el Kotlin.
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +30,14 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: gradle
+
+      - name: Cachear la compilación nativa
+        uses: actions/cache@v4
+        with:
+          path: |
+            android/app/.cxx
+            android/app/build/intermediates/cxx
+          key: nativo-${{ runner.os }}-${{ hashFiles('android/app/src/main/cpp/**') }}
 
       - name: Tests del motor
         working-directory: android

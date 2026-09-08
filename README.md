@@ -1,24 +1,65 @@
 # Rama AI
 
-Una mini inteligencia artificial conversacional en español, escrita **en Python puro**:
-sin dependencias, sin API keys, sin internet. Todo el "cerebro" son ~1.100 líneas legibles
-que podés abrir y entender.
+Una IA que corre **entera adentro de tu teléfono**. Escribe sus propias respuestas
+con un modelo de lenguaje local — no es un caparazón de ChatGPT ni de ninguna otra
+IA: no hay API, ni cuenta, ni clave, ni servidor. Los pesos están en tu disco y la
+generación ocurre en tu procesador.
+
+Busca en la web cuando la pregunta lo necesita, y tiene habilidades deterministas
+que le ponen los números exactos para que no los invente.
+
+## Cómo está armada
 
 ```
-$ python3 -m rama
-vos> hola
-Rama: ¡Hola! Soy Rama. ¿En qué andás?
-vos> cuánto es 12*7
-Rama: 12*7 = 84
-vos> aprende: mi banda favorita = Soda Stereo
-Rama: Listo, aprendí que «mi banda favorita» → «Soda Stereo».
-vos> cuál es mi banda favorita?
-Rama: Soda Stereo
+tu pregunta
+     │
+     ├─ 1. comandos          aprende: / olvidá / responde:      → se ejecutan y listo
+     ├─ 2. lo que enseñaste  tu corrección le gana a todo lo demás
+     ├─ 3. habilidades       cuentas, capitales, fechas, conversiones  → DATO EXACTO
+     ├─ 4. base local        TF-IDF sobre 94 temas               → CONTEXTO
+     ├─ 5. búsqueda web      DuckDuckGo, sin API key             → FUENTES
+     │
+     └─ 6. el modelo redacta la respuesta con todo eso por delante
 ```
+
+El modelo escribe; los otros cinco evitan que invente. Un modelo de 0.6B multiplica
+mal y confunde fechas: por eso las cuentas las hace la calculadora y las capitales
+salen de una tabla, no de la red neuronal.
+
+Si no hay modelo cargado, Rama sigue funcionando con los pasos 1 a 4: respuestas
+acotadas pero exactas, sin internet.
+
+## El modelo
+
+No viene dentro del APK: son cientos de megas y no todos quieren el mismo
+compromiso. Se elige y se descarga desde la app (botón del modelo, arriba a la
+derecha), una sola vez.
+
+| Modelo | Peso | RAM | Cómo va |
+|---|---|---|---|
+| **Qwen3 0.6B** | ~400 MB | 3 GB | Rápido en cualquier teléfono. Escribe bien, se equivoca seguido en datos. |
+| **Qwen3 1.7B** | ~1.1 GB | 6 GB | Más coherente y con más conocimiento propio. Lento y calienta en teléfonos modestos. |
+
+También podés **importar cualquier .gguf** que ya tengas: la app lo copia y lo usa.
+
+La inferencia es [llama.cpp](https://github.com/ggml-org/llama.cpp) (fijado en la
+versión `b10855`) compilado dentro del APK para `arm64-v8a`, con un puente JNI
+propio en `app/src/main/cpp/rama_llama.cpp`.
+
+## Qué sale del teléfono, y qué no
+
+- **Tus conversaciones: nunca.** El modelo corre local. No hay a dónde mandarlas.
+- **Internet se usa para dos cosas:** descargar los pesos del modelo, una vez; y
+  buscar en la web cuando la pregunta depende de datos actuales o vos lo pedís.
+- **Permisos:** sólo `INTERNET`. Los archivos llegan por el selector del sistema,
+  así que Rama ve únicamente lo que le pasás.
 
 ## Uso
 
 Requiere Python 3.10+ y nada más.
+
+La versión de escritorio (`rama/`, en Python) mantiene el motor de recuperación
+sin la parte generativa: sirve para trabajar sobre la base de conocimiento.
 
 ```bash
 python3 -m rama                      # chat interactivo en la terminal

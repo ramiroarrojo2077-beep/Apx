@@ -26,10 +26,14 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import ar.rama.ai.motor.AlmacenArchivo
+import ar.rama.ai.motor.Asistente
+import ar.rama.ai.motor.Generador
 import ar.rama.ai.motor.Memoria
-import ar.rama.ai.motor.Paso
+import ar.rama.ai.motor.Mensaje
+import ar.rama.ai.motor.PasoAsistente
+import ar.rama.ai.motor.Descargador
 import ar.rama.ai.motor.Rama
-import ar.rama.ai.motor.Respuesta
+import ar.rama.ai.motor.Resultado
 import ar.rama.ai.motor.Texto
 import java.io.File
 import java.util.concurrent.Executors
@@ -49,8 +53,13 @@ class MainActivity : Activity() {
     private lateinit var botonPensar: TextView
     private lateinit var botonEnviar: TextView
 
-    private var rama: Rama? = null
+    private var asistente: Asistente? = null
+    private var generador: Generador? = null
+    private var modelos: PantallaModelos? = null
+    private lateinit var chipModelo: TextView
+    private val historial = mutableListOf<Mensaje>()
     private var modoPensar = true
+    private var generando = false
     private var ultimoAdjunto: Adjunto? = null
 
     // Hilo demonio: si no lo fuera, seguiría vivo después de cerrar la
@@ -65,7 +74,19 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         instalarReporteDeErrores()
-        setContentView(construirPantalla())
+
+        val raiz = android.widget.FrameLayout(this)
+        raiz.addView(construirPantalla())
+        modelos = PantallaModelos(
+            actividad = this,
+            carpeta = File(filesDir, "modelos"),
+            modeloActivo = { generador?.archivo },
+            alUsar = { archivo -> cargarModelo(archivo) },
+            alBorrar = { descargarModelo() },
+            alImportar = { pedirModelo() },
+        ).also { raiz.addView(it.vista) }
+        setContentView(raiz)
+
         cargarCerebro()
     }
 
@@ -108,6 +129,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        generador?.cerrar()
         trabajador.shutdownNow()
         super.onDestroy()
     }
@@ -115,7 +137,7 @@ class MainActivity : Activity() {
     private fun cargarCerebro() {
         subtitulo.text = "despertando…"
         principal.postDelayed({
-            if (rama == null) {
+            if (asistente == null) {
                 subtitulo.text = "no pude cargar"
                 burbujaRama(
                     "Algo me está trabando el arranque: pasaron ${ESPERA_ARRANQUE / 1000} segundos y " +
@@ -128,16 +150,19 @@ class MainActivity : Activity() {
             val conocimiento = assets.open("conocimiento.json").bufferedReader().use { it.readText() }
             val memoria = Memoria(AlmacenArchivo(File(filesDir, "aprendido.json")))
             val motor = Rama(conocimiento, memoria)
+            val ayudante = Asistente(motor)
             principal.post {
-                rama = motor
-                subtitulo.text = "${motor.totalIntenciones} intenciones · ${motor.totalPatrones} patrones · " +
-                    "${motor.tamanioVocabulario} rasgos"
+                asistente = ayudante
+                subtitulo.text = "${motor.totalIntenciones} temas · ${motor.totalPatrones} patrones"
                 burbujaRama(
-                    "¡Hola! Soy Rama, una mini IA que corre entera adentro de tu teléfono: " +
-                        "sin internet, sin cuenta, sin nube.\n\n" +
-                        "Preguntame algo, tocá 🧠 para verme pensar, o mandame una foto, un PDF o un video con ＋."
+                    "¡Hola! Soy Rama. Corro entera adentro de tu teléfono: el modelo que " +
+                        "escribe mis respuestas es mío y local, no consulto la IA de nadie.\n\n" +
+                        "Para que pueda redactar respuestas propias necesito un modelo: tocalo " +
+                        "arriba a la derecha y elegí uno. Sin él sigo andando con mi base y mis " +
+                        "habilidades, que son exactas pero acotadas."
                 )
                 mostrarErrorAnterior()
+                restaurarModelo()
                 atenderArchivoCompartido()
             }
         }
@@ -191,8 +216,22 @@ class MainActivity : Activity() {
         textos.addView(subtitulo)
         fila.addView(textos, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
+        chipModelo = TextView(this).estilo(12.5f, Paleta.TENUE).apply {
+            text = "sin modelo"
+            padding(dp(11f), dp(7f))
+            background = fondoPulsable(Paleta.PANEL, dp(18f).toFloat(), Paleta.BORDE, dp(1f))
+            setOnClickListener { modelos?.mostrar() }
+            contentDescription = "Elegir modelo"
+        }
+        fila.addView(
+            chipModelo,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { rightMargin = dp(7f) },
+        )
+
         botonPensar = TextView(this).estilo(13f, Paleta.ACENTO_OSCURO, negrita = true).apply {
-            text = "🧠 pensar"
+            text = "🧠"
             padding(dp(12f), dp(8f))
             setOnClickListener { alternarModoPensar() }
         }
@@ -292,7 +331,7 @@ class MainActivity : Activity() {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                 override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                 override fun afterTextChanged(s: Editable?) {
-                    botonEnviar.alpha = if (s.isNullOrBlank()) 0.45f else 1f
+                    pintarBotonEnviar()
                 }
             })
         }
@@ -306,7 +345,15 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             alpha = 0.45f
             background = fondoPulsable(Paleta.ACENTO, dp(22f).toFloat())
-            setOnClickListener { enviar(entrada.text.toString()) }
+            setOnClickListener {
+                if (generando) {
+                    generando = false
+                    asistente?.cancelar()
+                    pintarBotonEnviar()
+                } else {
+                    enviar(entrada.text.toString())
+                }
+            }
             contentDescription = "Enviar"
         }
         barra.addView(botonEnviar, LinearLayout.LayoutParams(dp(44f), dp(44f)).apply { leftMargin = dp(8f) })
@@ -318,18 +365,197 @@ class MainActivity : Activity() {
     private fun enviar(texto: String) {
         val limpio = texto.trim()
         if (limpio.isEmpty()) return
-        val motor = rama
-        if (motor == null) {
-            avisar("Dame un segundo, todavía estoy cargando mi base de conocimiento.")
+        if (generando) {
+            avisar("Esperá que termine de escribir, o tocá ✕ para cortarla.")
+            return
+        }
+        val ayudante = asistente
+        if (ayudante == null) {
+            avisar("Dame un segundo, todavía estoy cargando.")
             return
         }
         entrada.setText("")
         burbujaUsuario(limpio)
 
+        val adjunto = ultimoAdjunto
+        if (adjunto != null && PREGUNTA_POR_ADJUNTO.containsMatchIn(Texto.normalizar(limpio))) {
+            responderSobreAdjunto(adjunto, limpio)
+            return
+        }
+
         val bloque = if (modoPensar) bloquePensar() else null
+        val burbuja = burbujaRama("…")
+        val acumulado = StringBuilder()
+        generando = true
+        pintarBotonEnviar()
+
+        val turnos = historial.toList()
+        historial.add(Mensaje("user", limpio))
+
         enSegundoPlano("pensando la respuesta") {
-            val respuesta = responderConContexto(motor, limpio)
-            principal.post { mostrar(respuesta, bloque) }
+            val respuesta = ayudante.responder(
+                pregunta = limpio,
+                historial = turnos,
+                alPaso = { paso -> principal.post { bloque?.agregarPaso(paso.titulo, paso.detalle); alFinal() } },
+            ) { fragmento ->
+                principal.post {
+                    acumulado.append(fragmento)
+                    burbuja.text = acumulado
+                    alFinal()
+                }
+                generando
+            }
+
+            principal.post {
+                generando = false
+                pintarBotonEnviar()
+                val texto = respuesta.texto
+                burbuja.text = texto
+                historial.add(Mensaje("assistant", texto))
+                bloque?.cerrar(respuesta.pasos.size)
+                if (respuesta.fuentesWeb.isNotEmpty()) fichaFuentes(respuesta.fuentesWeb)
+                alFinal()
+            }
+        }
+    }
+
+    /** Preguntas sobre el último archivo: se contestan con lo ya analizado. */
+    private fun responderSobreAdjunto(adjunto: Adjunto, pregunta: String) {
+        val bloque = if (modoPensar) bloquePensar() else null
+        bloque?.agregarPaso("Contexto", "tu pregunta menciona un adjunto y tengo «${adjunto.nombre}» analizado")
+        bloque?.agregarPaso("Análisis guardado", adjunto.pasos.joinToString("\n"))
+        bloque?.cerrar(2)
+        burbujaRama(adjunto.resumen)
+        historial.add(Mensaje("user", pregunta))
+        historial.add(Mensaje("assistant", adjunto.resumen))
+    }
+
+    /** Las fuentes que consultó, como tarjeta aparte y tocable. */
+    private fun fichaFuentes(fuentes: List<Resultado>) {
+        val ficha = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = fondoRedondeado(Paleta.PANEL, dp(14f).toFloat(), Paleta.BORDE, dp(1f))
+            setPadding(dp(14f), dp(11f), dp(14f), dp(11f))
+        }
+        ficha.addView(
+            TextView(this).estilo(11.5f, Paleta.TENUE, negrita = true).apply {
+                text = "FUENTES CONSULTADAS"
+                letterSpacing = 0.08f
+                setPadding(0, 0, 0, dp(6f))
+            }
+        )
+        for (fuente in fuentes) {
+            val item = TextView(this).estilo(12.5f, Paleta.TEXTO).apply {
+                text = "${fuente.titulo}\n${fuente.url}"
+                setPadding(0, dp(4f), 0, dp(4f))
+                setOnClickListener { abrirEnlace(fuente.url) }
+            }
+            ficha.addView(item)
+        }
+        val parametros = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            topMargin = dp(2f)
+            bottomMargin = dp(8f)
+            rightMargin = dp(24f)
+        }
+        contenedorChat.addView(ficha, parametros)
+        alFinal()
+    }
+
+    private fun abrirEnlace(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: Exception) {
+            avisar("No pude abrir el enlace.")
+        }
+    }
+
+    private fun pintarBotonEnviar() {
+        botonEnviar.text = if (generando) "✕" else "↑"
+        botonEnviar.alpha = if (generando || entrada.text.isNotBlank()) 1f else 0.45f
+    }
+
+    // ------------------------------------------------------------ modelo
+
+    private fun restaurarModelo() {
+        val guardado = preferencias().getString("modelo", null) ?: return
+        val archivo = File(guardado)
+        if (archivo.exists()) cargarModelo(archivo) else chipModelo.text = "sin modelo"
+    }
+
+    private fun cargarModelo(archivo: File) {
+        chipModelo.text = "cargando…"
+        enSegundoPlano("cargando el modelo") {
+            generador?.cerrar()
+            val abierto = Generador.abrir(archivo)
+            principal.post {
+                generador = abierto
+                asistente?.generador = abierto
+                if (abierto == null) {
+                    chipModelo.text = "sin modelo"
+                    burbujaRama(
+                        "No pude cargar «${archivo.name}». Puede que el archivo esté incompleto, " +
+                            "que no sea un GGUF, o que al teléfono le falte memoria para este modelo."
+                    )
+                } else {
+                    preferencias().edit().putString("modelo", archivo.absolutePath).apply()
+                    chipModelo.text = archivo.nameWithoutExtension
+                    burbujaRama("Modelo cargado: ${abierto.info}\n\nYa puedo escribir respuestas propias.")
+                }
+                modelos?.refrescar()
+            }
+        }
+    }
+
+    private fun descargarModelo() {
+        generador?.cerrar()
+        generador = null
+        asistente?.generador = null
+        preferencias().edit().remove("modelo").apply()
+        chipModelo.text = "sin modelo"
+    }
+
+    private fun pedirModelo() {
+        val intencion = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+        try {
+            startActivityForResult(intencion, PEDIDO_MODELO)
+        } catch (e: Exception) {
+            avisar("No encontré una app para elegir archivos.")
+        }
+    }
+
+    private fun preferencias() = getSharedPreferences("rama", MODE_PRIVATE)
+
+    /**
+     * Copia el .gguf elegido a la carpeta de la app.
+     *
+     * llama.cpp necesita una ruta real del sistema de archivos; un content://
+     * del selector no le sirve, así que hay que traerlo.
+     */
+    private fun importarModelo(uri: Uri) {
+        modelos?.ocultar()
+        burbujaRama("Copiando el modelo al almacenamiento de la app…")
+        enSegundoPlano("importando el modelo") {
+            val carpeta = File(filesDir, "modelos").apply { mkdirs() }
+            val destino = File(carpeta, "importado.gguf")
+            var copiados = 0L
+            contentResolver.openInputStream(uri).use { entrada ->
+                if (entrada == null) throw java.io.IOException("no pude abrir el archivo elegido")
+                destino.outputStream().use { salida -> copiados = entrada.copyTo(salida) }
+            }
+            principal.post {
+                if (!Descargador.esGguf(destino)) {
+                    destino.delete()
+                    burbujaRama("Ese archivo no es un modelo GGUF. Fijate que la extensión sea .gguf.")
+                } else {
+                    burbujaRama("Copiado (${AnalizadorAdjuntos.pesoLegible(copiados)}). Cargándolo…")
+                    cargarModelo(destino)
+                }
+            }
         }
     }
 
@@ -354,46 +580,6 @@ class MainActivity : Activity() {
                 }
             }
         }
-    }
-
-    /**
-     * Antes de ir al motor, damos una chance al último adjunto: si preguntás
-     * por "la foto" o "el pdf", contestamos con lo que ya analizamos.
-     */
-    private fun responderConContexto(motor: Rama, texto: String): Respuesta {
-        val adjunto = ultimoAdjunto
-        val plano = Texto.normalizar(texto)
-        if (adjunto != null && PREGUNTA_POR_ADJUNTO.containsMatchIn(plano)) {
-            val pasos = listOf(
-                Paso("Contexto", "la consulta menciona un adjunto y tengo «${adjunto.nombre}» analizado"),
-                Paso("Análisis guardado", adjunto.pasos.joinToString("\n")),
-                Paso("Decisión", "respondo con los datos que extraje del archivo, no con mi base de conocimiento"),
-            )
-            motor.memoria.registrarTurno("usuario", texto)
-            motor.memoria.registrarTurno("rama", adjunto.resumen)
-            return Respuesta(adjunto.resumen, "adjunto", 1.0, "adjunto", emptyList(), pasos)
-        }
-        return motor.responder(texto)
-    }
-
-    private fun mostrar(respuesta: Respuesta, bloque: BloquePensar?) {
-        if (bloque == null) {
-            burbujaRama(respuesta.texto)
-            return
-        }
-        // Revelamos los pasos de a uno: el razonamiento es real, el ritmo es
-        // para que se pueda leer.
-        revelarPaso(bloque, respuesta.pasos, 0) {
-            bloque.cerrar(respuesta)
-            burbujaRama(respuesta.texto)
-        }
-    }
-
-    private fun revelarPaso(bloque: BloquePensar, pasos: List<Paso>, indice: Int, alTerminar: () -> Unit) {
-        if (indice >= pasos.size) { alTerminar(); return }
-        bloque.agregarPaso(pasos[indice])
-        alFinal()
-        principal.postDelayed({ revelarPaso(bloque, pasos, indice + 1, alTerminar) }, RITMO_PENSAR)
     }
 
     private fun burbujaUsuario(texto: String) {
@@ -462,21 +648,20 @@ class MainActivity : Activity() {
     /** La tarjeta plegable donde Rama muestra su razonamiento. */
     private inner class BloquePensar(val tarjeta: LinearLayout, val cabecera: TextView, val detalle: LinearLayout) {
 
-        fun agregarPaso(paso: Paso) {
+        fun agregarPaso(tituloPaso: String, detallePaso: String) {
             val titulo = TextView(this@MainActivity).estilo(11.5f, Paleta.PENSAR, negrita = true).apply {
-                text = paso.titulo.uppercase()
+                text = tituloPaso.uppercase()
                 letterSpacing = 0.08f
             }
             val cuerpo = TextView(this@MainActivity).estilo(12.5f, Paleta.TENUE, monoespaciada = true).apply {
-                text = paso.detalle
+                text = detallePaso
                 setPadding(0, dp(2f), 0, dp(10f))
             }
             detalle.addView(titulo)
             detalle.addView(cuerpo)
         }
 
-        fun cerrar(respuesta: Respuesta) {
-            val n = respuesta.pasos.size
+        fun cerrar(n: Int) {
             cabecera.text = "🧠  $n pasos de razonamiento · tocá para ver"
             detalle.visibility = View.GONE
             tarjeta.setOnClickListener {
@@ -543,9 +728,12 @@ class MainActivity : Activity() {
 
     override fun onActivityResult(codigo: Int, resultado: Int, datos: Intent?) {
         super.onActivityResult(codigo, resultado, datos)
-        if (codigo != PEDIDO_ARCHIVO || resultado != RESULT_OK) return
+        if (resultado != RESULT_OK) return
         val uri = datos?.data ?: return
-        procesarAdjunto(uri)
+        when (codigo) {
+            PEDIDO_ARCHIVO -> procesarAdjunto(uri)
+            PEDIDO_MODELO -> importarModelo(uri)
+        }
     }
 
     private fun procesarAdjunto(uri: Uri) {
@@ -566,26 +754,20 @@ class MainActivity : Activity() {
             principal.post {
                 contenedorChat.removeView(cargando)
                 if (adjunto == null) {
-                    bloque?.cerrar(Respuesta("", pasos = listOf(Paso("Error", "no pude leer el archivo"))))
+                    bloque?.agregarPaso("Error", "no pude leer el archivo")
+                    bloque?.cerrar(1)
                     burbujaRama("No pude leer ese archivo. Puede que la app que lo comparte no me dé acceso.")
                     return@post
                 }
                 ultimoAdjunto = adjunto
                 tarjetaAdjunto(adjunto)
-                val pasos = adjunto.pasos.mapIndexed { i, texto ->
-                    Paso(if (i == 0) "Lectura del archivo" else "Análisis ${i + 1}", texto)
+                adjunto.pasos.forEachIndexed { i, texto ->
+                    bloque?.agregarPaso(if (i == 0) "Lectura del archivo" else "Análisis ${i + 1}", texto)
                 }
-                val respuesta = Respuesta(adjunto.resumen, "adjunto", 1.0, "adjunto", emptyList(), pasos)
-                if (bloque == null) {
-                    burbujaRama(adjunto.resumen)
-                    fichaDatos(adjunto.datos)
-                } else {
-                    revelarPaso(bloque, pasos, 0) {
-                        bloque.cerrar(respuesta)
-                        burbujaRama(adjunto.resumen)
-                        fichaDatos(adjunto.datos)
-                    }
-                }
+                bloque?.cerrar(adjunto.pasos.size)
+                burbujaRama(adjunto.resumen)
+                fichaDatos(adjunto.datos)
+                historial.add(Mensaje("assistant", adjunto.resumen))
             }
         }
     }
@@ -681,6 +863,7 @@ class MainActivity : Activity() {
 
     companion object {
         private const val PEDIDO_ARCHIVO = 1001
+        private const val PEDIDO_MODELO = 1002
         private const val ARCHIVO_ERROR = "ultimo-error.txt"
         private const val ESPERA_ARRANQUE = 8000L
         private const val RITMO_PENSAR = 230L

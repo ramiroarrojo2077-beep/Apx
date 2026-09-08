@@ -152,6 +152,18 @@ class Rama(
             .sortedByDescending { it.second }
     }
 
+    /**
+     * Los fragmentos de la base que más se parecen a la consulta.
+     *
+     * Es el contexto local que le pasamos al modelo generativo: lo que Rama
+     * ya sabe, puesto delante para que no tenga que inventarlo.
+     */
+    fun recuperar(texto: String, maximo: Int = 3, umbral: Double = UMBRAL_PISTA): List<String> =
+        clasificar(texto)
+            .filter { it.second >= umbral }
+            .take(maximo)
+            .mapNotNull { intenciones[it.first]?.firstOrNull() }
+
     /** Rota entre las respuestas de una intención para no sonar a loop. */
     private fun elegirRespuesta(intencion: String): String {
         val opciones = intenciones[intencion].orEmpty()

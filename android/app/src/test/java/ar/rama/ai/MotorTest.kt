@@ -1,6 +1,13 @@
 package ar.rama.ai
 
 import ar.rama.ai.motor.AlmacenEnMemoria
+import ar.rama.ai.motor.Asistente
+import ar.rama.ai.motor.Buscador
+import ar.rama.ai.motor.Catalogo
+import ar.rama.ai.motor.Descargador
+import ar.rama.ai.motor.Generador
+import ar.rama.ai.motor.Mensaje
+import ar.rama.ai.motor.Resultado
 import ar.rama.ai.motor.Calculadora
 import ar.rama.ai.motor.Corrector
 import ar.rama.ai.motor.ErrorCalculo
@@ -12,6 +19,8 @@ import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -362,6 +371,148 @@ class MotorTest {
         val r = nuevaRama().responder("asdkjh qwerty zxcvb")
         assertEquals("fallback", r.fuente)
         assertTrue("no orienta al usuario: ${r.texto}", r.texto.contains("responde:"))
+    }
+
+    // ------------------------------------------- asistente generativo
+
+    private fun nuevoAsistente() = Asistente(nuevaRama())
+
+    @Test
+    fun sinModeloElAsistenteSigueRespondiendo() {
+        val asistente = nuevoAsistente()
+        asistente.buscarEnWeb = false
+        val partes = StringBuilder()
+        val r = asistente.responder("cual es la capital de francia") { partes.append(it); true }
+        assertEquals("sin-modelo", r.fuente)
+        assertTrue("no usó la habilidad: ${r.texto}", r.texto.contains("París"))
+        assertEquals(r.texto, partes.toString())
+    }
+
+    @Test
+    fun losComandosNoNecesitanModelo() {
+        val asistente = nuevoAsistente()
+        asistente.buscarEnWeb = false
+        val r = asistente.responder("aprende: mi perro = Cachito") { true }
+        assertEquals("comando", r.fuente)
+        assertTrue(r.texto.contains("Cachito"))
+    }
+
+    @Test
+    fun buscaSoloCuandoTieneSentido() {
+        val asistente = nuevoAsistente()
+        assertNotNull("debería buscar si se lo piden",
+            asistente.motivoParaBuscar("busca quien gano el partido", false, false))
+        assertNotNull("debería buscar lo que depende de hoy",
+            asistente.motivoParaBuscar("cual es el precio del dolar hoy", false, false))
+        assertNull("no debe gastar datos si ya tiene el dato exacto",
+            asistente.motivoParaBuscar("cuanto es 2 mas 2", false, true))
+        assertNull("no debe buscar lo que ya sabe",
+            asistente.motivoParaBuscar("que es python", false, false))
+    }
+
+    @Test
+    fun noBuscaSiEstaApagado() {
+        val asistente = nuevoAsistente()
+        asistente.buscarEnWeb = false
+        assertNull(asistente.motivoParaBuscar("busca lo que sea hoy", true, false))
+    }
+
+    @Test
+    fun elPromptLlevaElContextoPorDelante() {
+        val asistente = nuevoAsistente()
+        val conversacion = asistente.armarConversacion(
+            pregunta = "quien ganó?",
+            historial = listOf(Mensaje("user", "hola"), Mensaje("assistant", "¡hola!")),
+            datoExacto = "2+2 = 4",
+            contextoLocal = listOf("Python es un lenguaje."),
+            resultados = listOf(Resultado("Título", "https://ejemplo.com", "Resumen")),
+        )
+        assertEquals("system", conversacion.first().rol)
+        val ultimo = conversacion.last()
+        assertEquals("user", ultimo.rol)
+        assertTrue("falta el dato exacto", ultimo.contenido.contains("DATO VERIFICADO"))
+        assertTrue("falta la base local", ultimo.contenido.contains("Python es un lenguaje"))
+        assertTrue("falta la fuente web", ultimo.contenido.contains("https://ejemplo.com"))
+        assertTrue("se perdió la pregunta", ultimo.contenido.contains("quien ganó?"))
+        assertTrue("se perdió el historial", conversacion.any { it.contenido == "hola" })
+    }
+
+    @Test
+    fun elHistorialSeRecortaAlUltimoTramo() {
+        val asistente = nuevoAsistente()
+        val largo = (1..30).map { Mensaje("user", "mensaje $it") }
+        val conversacion = asistente.armarConversacion("y?", largo, null, emptyList(), emptyList())
+        // sistema + los últimos turnos + la pregunta
+        assertEquals(Asistente.TURNOS_DE_HISTORIAL + 2, conversacion.size)
+        assertTrue(conversacion.any { it.contenido == "mensaje 30" })
+        assertFalse(conversacion.any { it.contenido == "mensaje 1" })
+    }
+
+    // ---------------------------------------------------- búsqueda web
+
+    @Test
+    fun elParserDeBusquedaExtraeLosResultados() {
+        val html = """
+            <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fes.wikipedia.org%2Fwiki%2FPar%C3%ADs&amp;rut=x">
+              Par&iacute;s - <b>Wikipedia</b>
+            </a>
+            <a class="result__snippet" href="x">La capital de Francia.</a>
+        """.trimIndent()
+        val resultados = Buscador.parsear(html)
+        assertEquals(1, resultados.size)
+        assertEquals("https://es.wikipedia.org/wiki/París", resultados[0].url)
+        assertEquals("París - Wikipedia", resultados[0].titulo)
+        assertEquals("La capital de Francia.", resultados[0].resumen)
+    }
+
+    @Test
+    fun elParserToleraHtmlDesconocido() {
+        assertTrue(Buscador.parsear("<html><body>cambió todo</body></html>").isEmpty())
+    }
+
+    @Test
+    fun decodificaEntidadesYEnlaces() {
+        assertEquals("café", Buscador.limpiar("caf&#233;"))
+        assertEquals("España", Buscador.limpiar("Espa&ntilde;a"))
+        assertEquals("https://a.com/x", Buscador.descifrarEnlace("https://a.com/x"))
+    }
+
+    // ------------------------------------------------- modelo y descarga
+
+    @Test
+    fun elCatalogoOfreceLosDosModelos() {
+        assertEquals(2, Catalogo.MODELOS.size)
+        assertNotNull(Catalogo.porId("qwen3-0.6b"))
+        assertNotNull(Catalogo.porId("qwen3-1.7b"))
+        assertTrue(Catalogo.MODELOS.all { it.repositorio.isNotBlank() && it.archivo.endsWith(".gguf") })
+        assertTrue(Catalogo.MODELOS[0].bytesAproximados < Catalogo.MODELOS[1].bytesAproximados)
+    }
+
+    @Test
+    fun reconoceUnGgufPorSuFirma() {
+        val bueno = File.createTempFile("modelo", ".gguf").apply {
+            writeBytes("GGUF".toByteArray() + ByteArray(64))
+            deleteOnExit()
+        }
+        val malo = File.createTempFile("pagina", ".html").apply {
+            writeText("<html>404</html>")
+            deleteOnExit()
+        }
+        assertTrue(Descargador.esGguf(bueno))
+        assertFalse(Descargador.esGguf(malo))
+    }
+
+    @Test
+    fun sinLibreriaNativaNoSeAbreNingunModelo() {
+        // En la JVM de tests no está el .so: abrir debe devolver null, no romperse.
+        val inexistente = File("/no/existe/modelo.gguf")
+        assertNull(Generador.abrir(inexistente))
+    }
+
+    @Test
+    fun losHilosRecomendadosSonRazonables() {
+        val hilos = Generador.hilosRecomendados()
+        assertTrue("hilos fuera de rango: $hilos", hilos in 2..6)
     }
 
     // ------------------------------------------------------ modo pensar

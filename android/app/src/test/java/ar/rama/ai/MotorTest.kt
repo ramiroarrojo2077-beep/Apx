@@ -595,18 +595,46 @@ class MotorTest {
     fun hayModelosDeAltaGama() {
         val potentes = Catalogo.MODELOS.filter { it.precision == 4 }
         assertTrue("faltan modelos de máxima precisión", potentes.size >= 3)
-        assertTrue("el techo debería superar los 4 GB",
-            Catalogo.MODELOS.maxOf { it.bytesAproximados } > 4L * 1024 * 1024 * 1024)
-        assertTrue("faltan modelos: ${Catalogo.MODELOS.size}", Catalogo.MODELOS.size >= 15)
+        assertTrue("faltan modelos: ${Catalogo.MODELOS.size}", Catalogo.MODELOS.size >= 12)
         assertTrue("falta más de una familia grande",
-            Catalogo.MODELOS.filter { it.precision == 4 }.map { it.familia }.toSet().size >= 3)
+            potentes.map { it.familia }.toSet().size >= 3)
     }
 
     @Test
-    fun laRamNecesariaSeLeeDelTexto() {
+    fun ningunModeloPideMasDeOchoGigas() {
+        // El techo del catálogo. Un modelo que pida más no lo puede correr
+        // ningún teléfono: o no carga, o el sistema cierra la app.
+        for (modelo in Catalogo.MODELOS) {
+            assertTrue(
+                "«${modelo.nombre}» pide ${modelo.ramRecomendada}",
+                modelo.ramGb <= ModeloDisponible.TOPE_RAM,
+            )
+        }
+        assertEquals(
+            "el más pesado tiene que llegar justo al techo",
+            ModeloDisponible.TOPE_RAM,
+            Catalogo.MODELOS.maxOf { it.ramGb },
+        )
+    }
+
+    @Test
+    fun laRamSaleDelTamanioDelArchivo() {
         assertEquals(3, Catalogo.ramNecesaria(Catalogo.CHICO))
-        assertEquals(16, Catalogo.ramNecesaria(Catalogo.QWEN_14B))
-        assertTrue(Catalogo.MODELOS.all { Catalogo.ramNecesaria(it) in 2..32 })
+        assertEquals(8, Catalogo.ramNecesaria(Catalogo.QWEN_4B_PRECISO))
+        assertTrue(Catalogo.MODELOS.all { Catalogo.ramNecesaria(it) in ModeloDisponible.ESCALA_RAM })
+        // Y ordena igual que el tamaño: nunca un archivo más grande pidiendo menos.
+        val porTamanio = Catalogo.MODELOS.sortedBy { it.bytesAproximados }
+        assertEquals(porTamanio.map { it.ramGb }.sorted(), porTamanio.map { it.ramGb })
+    }
+
+    @Test
+    fun elTelefonoChicoSoloVeLoQueLeEntra() {
+        val deOchoGigas = Catalogo.MODELOS.count { it.entraEn(8) }
+        val deCuatro = Catalogo.MODELOS.count { it.entraEn(4) }
+        assertEquals("con 8 GB tienen que entrar todos", Catalogo.MODELOS.size, deOchoGigas)
+        assertTrue("con 4 GB tiene que entrar algo", deCuatro in 1 until Catalogo.MODELOS.size)
+        // Sin lectura de memoria no escondemos nada: que decida el usuario.
+        assertEquals(Catalogo.MODELOS.size, Catalogo.MODELOS.count { it.entraEn(0) })
     }
 
     @Test
@@ -683,8 +711,22 @@ class MotorTest {
         assertTrue("pocas opciones: ${Catalogo.MODELOS.size}", Catalogo.MODELOS.size >= 8)
         assertNotNull(Catalogo.porId("qwen3-0.6b"))
         assertNotNull(Catalogo.porId("qwen3-4b"))
+        assertNotNull(Catalogo.porId("qwen3-4b-q6"))
         assertTrue(Catalogo.MODELOS.all { it.repositorio.isNotBlank() && it.archivo.endsWith(".gguf") })
         assertEquals(Catalogo.MODELOS.size, Catalogo.MODELOS.map { it.id }.toSet().size)
+    }
+
+    @Test
+    fun encuentraLosModelosQueYaNoEstanEnLaLista() {
+        val carpeta = File.createTempFile("modelos", "").let { it.delete(); it.mkdirs(); it }
+        File(carpeta, "qwen3-4b.gguf").writeText("en el catálogo")
+        File(carpeta, "qwen3-14b.gguf").writeText("ya no está, ocupa lugar")
+        File(carpeta, "notas.txt").writeText("no es un modelo")
+
+        val sueltos = DescargaEnSegundoPlano.huerfanosEn(carpeta, setOf("qwen3-4b"))
+        assertEquals(listOf("qwen3-14b.gguf"), sueltos.map { it.name })
+        // Y con la carpeta todavía sin crear, no explota.
+        assertEquals(emptyList<File>(), DescargaEnSegundoPlano.huerfanosEn(File(carpeta, "no-existe")))
     }
 
     @Test

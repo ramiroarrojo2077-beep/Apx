@@ -9,7 +9,6 @@ data class ModeloDisponible(
     val nombre: String,
     val familia: String,
     val bytesAproximados: Long,
-    val ramRecomendada: String,
     /** De 1 a 4: cuán seguido acierta en datos y sigue instrucciones. */
     val precision: Int,
     /** De 1 a 4: qué tan rápido responde en un teléfono común. */
@@ -26,9 +25,47 @@ data class ModeloDisponible(
     val repositorio: String get() = origenes.first().repositorio
     val archivo: String get() = origenes.first().archivo
 
+    /**
+     * Los gigabytes de RAM que hace falta tener para que ande.
+     *
+     * Se calcula del tamaño del archivo en vez de escribirse a mano, que era
+     * la forma segura de que un día no coincidieran. La cuenta es archivo ×
+     * 1,6 + 2 GB, y sale de dos cosas: los pesos tienen que quedar residentes
+     * enteros —el modelo los recorre todos para cada palabra—, y arriba de eso
+     * están la caché de atención, los buffers de cálculo y los tres y pico de
+     * gigas que se lleva Android con sus cosas abiertas.
+     *
+     * De ahí sale el techo: con 8 GB de RAM entra un archivo de hasta unos
+     * 3,7 GB, y ni un byte más. Un 8B comprimido a 4 bits pesa 5 y no entra;
+     * comprimirlo hasta que entre lo deja peor que un 4B casi intacto.
+     */
+    val ramGb: Int
+        get() {
+            val gigas = bytesAproximados / 1024.0 / 1024 / 1024
+            val pedido = gigas * 1.6 + 2.0
+            return ESCALA_RAM.firstOrNull { it >= pedido } ?: TOPE_RAM
+        }
+
+    /** Cómo se muestra: "8 GB". */
+    val ramRecomendada: String get() = "$ramGb GB"
+
+    /** Si el teléfono no llega, la tarjeta lo marca y avisa antes de cargar. */
+    fun entraEn(ramDelTelefono: Int): Boolean = ramDelTelefono == 0 || ramGb <= ramDelTelefono
+
     companion object {
         /** Cuántos tramos tiene el medidor de precisión y velocidad. */
         const val ESCALA = 4
+
+        /**
+         * El máximo que pide el modelo más pesado del catálogo.
+         *
+         * No es una preferencia: es hasta dónde llega un teléfono. Nada que
+         * pida más entra en la lista, por capaz que sea.
+         */
+        const val TOPE_RAM = 8
+
+        /** Los escalones reales de memoria de un teléfono. */
+        val ESCALA_RAM = listOf(3, 4, 6, 8)
     }
 }
 
@@ -38,6 +75,14 @@ data class ModeloDisponible(
  * Son GGUF publicados por sus autores; Rama los descarga y los corre, no los
  * consulta por internet. La elección es siempre el mismo canje: más tamaño es
  * más precisión y menos velocidad.
+ *
+ * El catálogo termina en los 8 GB de RAM, que es hasta donde llega un teléfono
+ * bueno de hoy. Antes había un 8B, un 12B y un 14B; se fueron porque eran una
+ * promesa que casi nadie podía cobrar: al que no tenía la memoria le cerraban
+ * la app, y al que la tenía le contestaban en más de un minuto. En su lugar
+ * está la franja de alta fidelidad: los mismos 3B y 4B, pero guardados con
+ * mucha menos compresión. Un 4B casi intacto le gana en la práctica a un 8B
+ * apretado hasta que entre.
  */
 object Catalogo {
 
@@ -53,7 +98,6 @@ object Catalogo {
         nombre = "Qwen3 0.6B",
         familia = "Qwen",
         bytesAproximados = 400L * 1024 * 1024,
-        ramRecomendada = "3 GB",
         precision = 1,
         velocidad = 4,
         descripcion = "El más liviano y rápido: anda en cualquier teléfono y contesta en " +
@@ -66,7 +110,6 @@ object Catalogo {
         nombre = "Qwen3 0.6B · alta fidelidad",
         familia = "Qwen",
         bytesAproximados = 700L * 1024 * 1024,
-        ramRecomendada = "4 GB",
         precision = 2,
         velocidad = 4,
         descripcion = "El mismo modelo chico pero comprimido con mucha menos pérdida (Q8 " +
@@ -80,7 +123,6 @@ object Catalogo {
         nombre = "Gemma 3 1B",
         familia = "Gemma",
         bytesAproximados = 800L * 1024 * 1024,
-        ramRecomendada = "4 GB",
         precision = 2,
         velocidad = 4,
         descripcion = "De la familia de Google. Buen español y respuestas ordenadas, " +
@@ -97,7 +139,6 @@ object Catalogo {
         nombre = "Llama 3.2 1B",
         familia = "Llama",
         bytesAproximados = 810L * 1024 * 1024,
-        ramRecomendada = "4 GB",
         precision = 2,
         velocidad = 4,
         descripcion = "De la familia de Meta. Escribe con naturalidad en español y es " +
@@ -114,7 +155,6 @@ object Catalogo {
         nombre = "Qwen3 1.7B",
         familia = "Qwen",
         bytesAproximados = 1150L * 1024 * 1024,
-        ramRecomendada = "6 GB",
         precision = 2,
         velocidad = 3,
         descripcion = "Bastante más coherente y con más conocimiento propio que los de " +
@@ -127,7 +167,6 @@ object Catalogo {
         nombre = "Llama 3.2 3B",
         familia = "Llama",
         bytesAproximados = 2020L * 1024 * 1024,
-        ramRecomendada = "8 GB",
         precision = 3,
         velocidad = 2,
         descripcion = "Un salto real de calidad: razona mejor y se equivoca mucho menos. " +
@@ -144,7 +183,6 @@ object Catalogo {
         nombre = "Qwen3 4B",
         familia = "Qwen",
         bytesAproximados = 2500L * 1024 * 1024,
-        ramRecomendada = "8 GB",
         precision = 3,
         velocidad = 2,
         descripcion = "El más capaz de la lista: el que menos inventa y mejor sigue " +
@@ -157,7 +195,6 @@ object Catalogo {
         nombre = "Gemma 3 4B",
         familia = "Gemma",
         bytesAproximados = 2500L * 1024 * 1024,
-        ramRecomendada = "8 GB",
         precision = 3,
         velocidad = 2,
         descripcion = "La alternativa grande de Google, muy sólida en español. " +
@@ -169,61 +206,11 @@ object Catalogo {
         ),
     )
 
-    val QWEN_8B = ModeloDisponible(
-        id = "qwen3-8b",
-        nombre = "Qwen3 8B",
-        familia = "Qwen",
-        bytesAproximados = 5000L * 1024 * 1024,
-        ramRecomendada = "12 GB",
-        precision = 4,
-        velocidad = 1,
-        descripcion = "Lo más capaz que entra en un teléfono. Razona de verdad y casi no " +
-            "inventa. Necesita un equipo tope de gama y va a tardar bastante por " +
-            "respuesta: pensalo como una consulta, no como un chat rápido.",
-        origenes = qwen("8B", "Qwen3-8B-Q4_K_M.gguf"),
-    )
-
-    val LLAMA_8B = ModeloDisponible(
-        id = "llama31-8b",
-        nombre = "Llama 3.1 8B",
-        familia = "Llama",
-        bytesAproximados = 4920L * 1024 * 1024,
-        ramRecomendada = "12 GB",
-        precision = 4,
-        velocidad = 1,
-        descripcion = "El grande de Meta, muy sólido en español y con bastante " +
-            "conocimiento propio. Mismas exigencias que el Qwen 8B.",
-        origenes = listOf(
-            Origen("bartowski/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"),
-            Origen("unsloth/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"),
-            Origen("hugging-quants/Meta-Llama-3.1-8B-Instruct-GGUF", "meta-llama-3.1-8b-instruct-q4_k_m.gguf"),
-        ),
-    )
-
-    val GEMMA_12B = ModeloDisponible(
-        id = "gemma3-12b",
-        nombre = "Gemma 3 12B",
-        familia = "Gemma",
-        bytesAproximados = 7300L * 1024 * 1024,
-        ramRecomendada = "16 GB",
-        precision = 4,
-        velocidad = 1,
-        descripcion = "El techo absoluto de lo que corre en un teléfono, y sólo en los " +
-            "de 16 GB. Si el tuyo no los tiene, Android va a cerrar la app al cargarlo: " +
-            "Rama te avisa antes de intentarlo.",
-        origenes = listOf(
-            Origen("ggml-org/gemma-3-12b-it-GGUF", "gemma-3-12b-it-Q4_K_M.gguf"),
-            Origen("unsloth/gemma-3-12b-it-GGUF", "gemma-3-12b-it-Q4_K_M.gguf"),
-            Origen("bartowski/google_gemma-3-12b-it-GGUF", "google_gemma-3-12b-it-Q4_K_M.gguf"),
-        ),
-    )
-
     val PHI_MINI = ModeloDisponible(
         id = "phi4-mini",
         nombre = "Phi-4 mini",
         familia = "Phi",
         bytesAproximados = 2400L * 1024 * 1024,
-        ramRecomendada = "8 GB",
         precision = 3,
         velocidad = 2,
         descripcion = "De Microsoft, entrenado con datos muy filtrados: rinde por encima " +
@@ -235,60 +222,84 @@ object Catalogo {
         ),
     )
 
+    // --------------------------------------------------------------------
+    // La franja de arriba: 8 GB de RAM.
+    //
+    // Acá vive lo mejor que corre en un teléfono de verdad. No son modelos más
+    // grandes sino los mismos, guardados con menos compresión: un 4B en Q6
+    // conserva casi todo lo que sabía antes de comprimirse, mientras que un 8B
+    // apretado hasta este tamaño pierde justo lo que lo hacía valer la pena.
+    // --------------------------------------------------------------------
+
     val QWEN_4B_PRECISO = ModeloDisponible(
-        id = "qwen3-4b-q8",
+        id = "qwen3-4b-q6",
         nombre = "Qwen3 4B · alta fidelidad",
         familia = "Qwen",
-        bytesAproximados = 4300L * 1024 * 1024,
-        ramRecomendada = "10 GB",
+        bytesAproximados = 3150L * 1024 * 1024,
         precision = 4,
         velocidad = 2,
-        descripcion = "Un 4B casi sin pérdida por compresión (Q8). Suele rendir mejor que " +
-            "un 8B muy comprimido, y ocupa menos: si tenés 10 GB, es la mejor relación " +
-            "de toda la lista.",
-        origenes = qwen("4B", "Qwen3-4B-Q8_0.gguf"),
+        descripcion = "El mejor de la lista. Es el mismo Qwen3 4B pero casi sin pérdida " +
+            "por compresión: acierta bastante más en datos y sigue mejor las " +
+            "instrucciones largas. Si tu teléfono tiene 8 GB, es este.",
+        origenes = qwen("4B", "Qwen3-4B-Q6_K.gguf"),
     )
 
-    val MISTRAL_7B = ModeloDisponible(
-        id = "mistral-7b",
-        nombre = "Mistral 7B",
-        familia = "Mistral",
-        bytesAproximados = 4400L * 1024 * 1024,
-        ramRecomendada = "12 GB",
+    val GEMMA_4B_PRECISO = ModeloDisponible(
+        id = "gemma3-4b-q6",
+        nombre = "Gemma 3 4B · alta fidelidad",
+        familia = "Gemma",
+        bytesAproximados = 3370L * 1024 * 1024,
         precision = 4,
-        velocidad = 1,
-        descripcion = "El clásico europeo: muy sólido en español y con buen criterio " +
-            "para seguir instrucciones largas.",
+        velocidad = 2,
+        descripcion = "El Gemma 4B sin apretar. Escribe con más soltura que el Qwen y " +
+            "queda mejor para redactar; el Qwen le gana en datos y en matemática.",
         origenes = listOf(
-            Origen("bartowski/Mistral-7B-Instruct-v0.3-GGUF", "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf"),
-            Origen("unsloth/mistral-7b-instruct-v0.3-GGUF", "mistral-7b-instruct-v0.3.Q4_K_M.gguf"),
-            Origen("MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF", "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"),
+            Origen("unsloth/gemma-3-4b-it-GGUF", "gemma-3-4b-it-Q6_K.gguf"),
+            Origen("bartowski/google_gemma-3-4b-it-GGUF", "google_gemma-3-4b-it-Q6_K.gguf"),
+            Origen("ggml-org/gemma-3-4b-it-GGUF", "gemma-3-4b-it-Q6_K.gguf"),
         ),
     )
 
-    val QWEN_14B = ModeloDisponible(
-        id = "qwen3-14b",
-        nombre = "Qwen3 14B",
-        familia = "Qwen",
-        bytesAproximados = 9000L * 1024 * 1024,
-        ramRecomendada = "16 GB",
+    val LLAMA_3B_PRECISO = ModeloDisponible(
+        id = "llama32-3b-q8",
+        nombre = "Llama 3.2 3B · alta fidelidad",
+        familia = "Llama",
+        bytesAproximados = 3255L * 1024 * 1024,
         precision = 4,
-        velocidad = 1,
-        descripcion = "El techo absoluto: es el que más se acerca a una IA de escritorio. " +
-            "Sólo en teléfonos de 16 GB, y con paciencia: cada respuesta puede tardar " +
-            "más de un minuto.",
-        origenes = qwen("14B", "Qwen3-14B-Q4_K_M.gguf"),
+        velocidad = 2,
+        descripcion = "El 3B de Meta prácticamente intacto (Q8): de todo el catálogo es " +
+            "el que menos perdió al comprimirse. Muy parejo en español.",
+        origenes = listOf(
+            Origen("bartowski/Llama-3.2-3B-Instruct-GGUF", "Llama-3.2-3B-Instruct-Q8_0.gguf"),
+            Origen("unsloth/Llama-3.2-3B-Instruct-GGUF", "Llama-3.2-3B-Instruct-Q8_0.gguf"),
+            Origen("hugging-quants/Llama-3.2-3B-Instruct-Q8_0-GGUF", "llama-3.2-3b-instruct-q8_0.gguf"),
+        ),
+    )
+
+    val PHI_MINI_PRECISO = ModeloDisponible(
+        id = "phi4-mini-q6",
+        nombre = "Phi-4 mini · alta fidelidad",
+        familia = "Phi",
+        bytesAproximados = 3000L * 1024 * 1024,
+        precision = 4,
+        velocidad = 2,
+        descripcion = "El Phi sin apretar. Es el que mejor razona paso a paso de los " +
+            "cuatro, sobre todo con cuentas y con lógica.",
+        origenes = listOf(
+            Origen("bartowski/microsoft_Phi-4-mini-instruct-GGUF", "microsoft_Phi-4-mini-instruct-Q6_K.gguf"),
+            Origen("unsloth/Phi-4-mini-instruct-GGUF", "Phi-4-mini-instruct-Q6_K.gguf"),
+            Origen("bartowski/microsoft_Phi-4-mini-instruct-GGUF", "microsoft_Phi-4-mini-instruct-Q5_K_M.gguf"),
+        ),
     )
 
     /** Del más liviano al más capaz: el orden en que conviene decidir. */
     val MODELOS: List<ModeloDisponible> = listOf(
         QWEN_06_R, QWEN_06_PRECISO, GEMMA_1B, LLAMA_1B, QWEN_17, LLAMA_3B, PHI_MINI,
-        QWEN_4B, GEMMA_4B, QWEN_4B_PRECISO, MISTRAL_7B, LLAMA_8B, QWEN_8B, GEMMA_12B, QWEN_14B,
+        QWEN_4B, GEMMA_4B, PHI_MINI_PRECISO, QWEN_4B_PRECISO, LLAMA_3B_PRECISO, GEMMA_4B_PRECISO,
     )
 
     /** Los gigabytes de RAM que pide, como número. */
-    fun ramNecesaria(modelo: ModeloDisponible): Int =
-        modelo.ramRecomendada.filter { it.isDigit() }.toIntOrNull() ?: 4
+    fun ramNecesaria(modelo: ModeloDisponible): Int = modelo.ramGb
 
     /** Compatibilidad con nombres viejos usados en el resto del código. */
     val CHICO = QWEN_06_R

@@ -98,7 +98,10 @@ class PantallaModelos(
             TextView(actividad).estilo(Tipo.SECUNDARIO, Paleta.TEXTO_2, interlineado = 1.45f).apply {
                 text = "Rama genera sus respuestas con un modelo que corre acá adentro, sin " +
                     "pasar por la IA de nadie. La descarga la hace el gestor del sistema: " +
-                    "podés salir de la app y sigue bajando."
+                    "podés salir de la app y sigue bajando.\n\n" +
+                    "La lista termina en los ${ModeloDisponible.TOPE_RAM} GB de RAM, que es hasta " +
+                    "donde llega un teléfono. Los de arriba de todo no son más grandes: son los " +
+                    "mismos, guardados con menos compresión, que es lo que más se nota."
                 setPadding(0, 0, 0, actividad.dp(Espacio.L))
             }
         )
@@ -186,6 +189,8 @@ class PantallaModelos(
     fun refrescar() {
         tarjetas.removeAllViews()
 
+        tarjetaDeHuerfanos()?.let { tarjetas.addView(it) }
+
         if (!Llama.disponible) {
             tarjetas.addView(
                 aviso(
@@ -197,6 +202,54 @@ class PantallaModelos(
             )
         }
         for (modelo in Catalogo.MODELOS) tarjetas.addView(tarjetaDe(modelo))
+    }
+
+    /**
+     * Los modelos bajados que ya no están en la lista.
+     *
+     * Cuando un modelo sale del catálogo, el archivo que el usuario ya había
+     * bajado se queda ocupando gigas sin que nada lo muestre. Acá aparece, con
+     * el espacio que ocupa y un botón para soltarlo. Nunca se borra solo:
+     * bajar cuatro gigas por datos móviles cuesta demasiado.
+     */
+    private fun tarjetaDeHuerfanos(): View? {
+        val sueltos = descargas.huerfanos().filter { it.absolutePath != modeloActivo()?.absolutePath }
+        if (sueltos.isEmpty()) return null
+        val bytes = sueltos.sumOf { it.length() }
+
+        val tarjeta = LinearLayout(actividad).apply {
+            orientation = LinearLayout.VERTICAL
+            background = fondoConFranja(
+                Paleta.AVISO_TENUE, Paleta.AVISO, actividad.dp(Radio.MEDIO).toFloat(), actividad.dp(3f),
+            )
+            setPadding(
+                actividad.dp(Espacio.L), actividad.dp(Espacio.M),
+                actividad.dp(Espacio.L - 2f), actividad.dp(Espacio.M),
+            )
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { bottomMargin = actividad.dp(Espacio.M) }
+        }
+        tarjeta.addView(
+            TextView(actividad).estilo(Tipo.SECUNDARIO + 0.5f, Paleta.AVISO, negrita = true, interlineado = 1f).apply {
+                text = "Espacio ocupado sin uso"
+            }
+        )
+        tarjeta.addView(
+            TextView(actividad).estilo(Tipo.ETIQUETA + 0.5f, Paleta.TEXTO_2, interlineado = 1.4f).apply {
+                val cuantos = if (sueltos.size == 1) "Un modelo bajado" else "${sueltos.size} modelos bajados"
+                text = "$cuantos ya no están en la lista y ocupan " +
+                    "${AnalizadorAdjuntos.pesoLegible(bytes)}. Podés borrarlos sin perder nada de lo que usás."
+                setPadding(0, actividad.dp(Espacio.XS + 1f), 0, actividad.dp(Espacio.M))
+            }
+        )
+        tarjeta.addView(
+            actividad.boton("Liberar ${AnalizadorAdjuntos.pesoLegible(bytes)}", color = Paleta.AVISO) {
+                sueltos.forEach { it.delete() }
+                refrescar()
+            }
+        )
+        return tarjeta
     }
 
     /** Una tarjeta con franja de color al costado, para lo que pide atención. */
@@ -263,7 +316,7 @@ class PantallaModelos(
         val archivo = descargas.archivoDe(modelo)
         val estado = descargas.estado(modelo)
         val enUso = modeloActivo()?.absolutePath == archivo.absolutePath
-        val entra = ramDelTelefono == 0 || Catalogo.ramNecesaria(modelo) <= ramDelTelefono
+        val entra = modelo.entraEn(ramDelTelefono)
 
         val tarjeta = tarjetaVacia()
         if (!entra) tarjeta.alpha = 0.5f

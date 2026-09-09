@@ -3,6 +3,7 @@ package ar.rama.ai
 import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
+import ar.rama.ai.motor.Catalogo
 import ar.rama.ai.motor.ModeloDisponible
 import java.io.File
 
@@ -31,9 +32,14 @@ class DescargaEnSegundoPlano(private val contexto: Context) {
 
     private val preferencias = contexto.getSharedPreferences("descargas", Context.MODE_PRIVATE)
 
+    /** La carpeta donde viven los modelos bajados. */
+    val carpeta: File? get() = contexto.getExternalFilesDir(CARPETA)
+
     /** Dónde queda el archivo. El modelo se usa desde acá, sin copiarlo. */
-    fun archivoDe(modelo: ModeloDisponible): File =
-        File(contexto.getExternalFilesDir(CARPETA), "${modelo.id}.gguf")
+    fun archivoDe(modelo: ModeloDisponible): File = File(carpeta, "${modelo.id}.gguf")
+
+    /** Los archivos de modelos que ya no están en el catálogo. */
+    fun huerfanos(): List<File> = huerfanosEn(carpeta)
 
     fun idDe(modelo: ModeloDisponible): Long = preferencias.getLong(modelo.id, -1L)
 
@@ -115,6 +121,28 @@ class DescargaEnSegundoPlano(private val contexto: Context) {
 
     companion object {
         private const val CARPETA = "modelos"
+
+        /**
+         * Los .gguf que quedaron de modelos que el catálogo ya no ofrece.
+         *
+         * Cuando un modelo sale de la lista —porque pedía más memoria de la
+         * que tiene un teléfono, o porque lo reemplazó una versión mejor—, el
+         * archivo que el usuario ya había bajado se queda ahí ocupando gigas
+         * sin que nada lo muestre ni lo pueda borrar. Esto los encuentra para
+         * que la pantalla de modelos ofrezca liberarlos.
+         *
+         * No borra nada por su cuenta: bajar cuatro gigas por una conexión
+         * móvil cuesta demasiado como para que la app decida sola.
+         */
+        fun huerfanosEn(
+            carpeta: File?,
+            idsEnUso: Set<String> = Catalogo.MODELOS.map { it.id }.toSet(),
+        ): List<File> {
+            val archivos = carpeta?.listFiles() ?: return emptyList()
+            return archivos
+                .filter { it.isFile && it.name.endsWith(".gguf") && it.nameWithoutExtension !in idsEnUso }
+                .sortedByDescending { it.length() }
+        }
 
         /** Traduce los códigos del gestor a algo que se pueda leer. */
         fun explicar(razon: Int): String = when (razon) {

@@ -10,6 +10,7 @@ import ar.rama.ai.motor.Enciclopedia
 import ar.rama.ai.motor.Enfasis
 import ar.rama.ai.motor.Formato
 import ar.rama.ai.motor.FiltroPensamiento
+import ar.rama.ai.motor.ModeloDisponible
 import ar.rama.ai.motor.Modos
 import ar.rama.ai.motor.Nucleos
 import ar.rama.ai.motor.Generador
@@ -702,9 +703,11 @@ class MotorTest {
     }
 
     @Test
-    fun laBarraMuestraElPuntaje() {
-        assertEquals("●●○○", Catalogo.CHICO.barra(2))
-        assertEquals("●●●●", Catalogo.CHICO.barra(4))
+    fun losPuntajesEntranEnLaEscalaDelMedidor() {
+        // El medidor de la pantalla dibuja ESCALA tramos: un puntaje mayor se
+        // saldría del riel sin que nadie se entere.
+        assertTrue(Catalogo.MODELOS.all { it.precision in 1..ModeloDisponible.ESCALA })
+        assertTrue(Catalogo.MODELOS.all { it.velocidad in 1..ModeloDisponible.ESCALA })
     }
 
     @Test

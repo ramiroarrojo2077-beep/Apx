@@ -9,7 +9,6 @@ package ar.rama.ai.motor
 data class Modo(
     val id: String,
     val nombre: String,
-    val icono: String,
     val descripcion: String,
     val instruccion: String,
     val temperatura: Float,
@@ -49,7 +48,6 @@ object Modos {
     val CHARLA = Modo(
         id = "charla",
         nombre = "Charla",
-        icono = "💬",
         descripcion = "Equilibrado. Contesta como en una conversación, sin dar vueltas.",
         instruccion = "Contestá en tono de conversación, natural y breve: dos o tres " +
             "oraciones salvo que el tema pida más.",
@@ -63,7 +61,6 @@ object Modos {
     val PRECISO = Modo(
         id = "preciso",
         nombre = "Preciso",
-        icono = "🎯",
         descripcion = "Va al dato. No tira dados al elegir palabras, así que repite " +
             "la misma respuesta ante la misma pregunta.",
         instruccion = "Contestá de forma factual y corta. No adornes. Si no estás " +
@@ -78,7 +75,6 @@ object Modos {
     val EXPLICAR = Modo(
         id = "explicar",
         nombre = "Explicar",
-        icono = "📚",
         descripcion = "Desarrolla con ejemplos y paso a paso. Para entender algo, no para consultarlo.",
         instruccion = "Explicá con calma y en orden: primero la idea central en una " +
             "frase, después el desarrollo con un ejemplo concreto. Usá lenguaje " +
@@ -93,7 +89,6 @@ object Modos {
     val CREATIVO = Modo(
         id = "creativo",
         nombre = "Creativo",
-        icono = "✨",
         descripcion = "Para escribir, imaginar y jugar. Se suelta más y no sale a buscar.",
         instruccion = "Escribí con libertad e imaginación: historias, ideas, juegos, " +
             "textos. Podés inventar todo lo que sea ficción, pero si te preguntan " +
@@ -108,7 +103,6 @@ object Modos {
     val AL_HUESO = Modo(
         id = "al-hueso",
         nombre = "Al hueso",
-        icono = "⚡",
         descripcion = "Una o dos frases. Nada más.",
         instruccion = "Contestá en una o dos oraciones como máximo. Sin introducción, " +
             "sin cierre, sin repetir la pregunta. Sólo la respuesta.",

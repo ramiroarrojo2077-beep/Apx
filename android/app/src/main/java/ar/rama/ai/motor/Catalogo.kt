@@ -26,10 +26,8 @@ data class ModeloDisponible(
     val repositorio: String get() = origenes.first().repositorio
     val archivo: String get() = origenes.first().archivo
 
-    /** "●●○○" — para mostrar la relación de un vistazo. */
-    fun barra(valor: Int): String = "●".repeat(valor) + "○".repeat(ESCALA - valor)
-
     companion object {
+        /** Cuántos tramos tiene el medidor de precisión y velocidad. */
         const val ESCALA = 4
     }
 }

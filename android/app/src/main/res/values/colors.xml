@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Los mismos valores que Paleta, en Ui.kt. Acá viven sólo los que necesita
+    el sistema antes de que corra una línea de Kotlin: el fondo de la ventana
+    mientras la app abre, y las barras de estado y de navegación.
+-->
 <resources>
-    <color name="fondo">#0F1115</color>
-    <color name="panel">#171A21</color>
-    <color name="acento">#4ADE80</color>
-    <color name="seleccion">#334ADE80</color>
+    <color name="fondo">#0A0C0F</color>
+    <color name="superficie">#12151A</color>
+    <color name="acento">#3ECF8E</color>
+    <color name="seleccion">#403ECF8E</color>
 </resources>

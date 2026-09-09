@@ -54,8 +54,8 @@ class MainActivity : Activity() {
     private lateinit var scrollChat: ScrollView
     private lateinit var entrada: EditText
     private lateinit var subtitulo: TextView
-    private lateinit var botonPensar: TextView
-    private lateinit var botonEnviar: TextView
+    private lateinit var botonPensar: ImageView
+    private lateinit var botonEnviar: ImageView
 
     private var asistente: Asistente? = null
     private var generador: Generador? = null
@@ -63,15 +63,18 @@ class MainActivity : Activity() {
     private var chats: PantallaChats? = null
     private lateinit var conversaciones: Conversaciones
     private var chatActual: String = ""
-    private lateinit var sugerencias: View
-    private lateinit var avisoModelo: TextView
+    private lateinit var avisoModelo: View
     private lateinit var chipModelo: TextView
+    private lateinit var puntoModelo: View
+    /** La portada del chat vacío. Se va apenas se escribe la primera pregunta. */
+    private var bienvenida: View? = null
+    /** Los tres puntos que laten mientras el modelo todavía no soltó nada. */
+    private var indicador: View? = null
     private val historial = mutableListOf<Mensaje>()
     private val chipsModo = mutableListOf<Pair<Modo, TextView>>()
     private var modoActual = Modos.PREDETERMINADO
     private var modoPensar = true
     private var generando = false
-    private var animacionEscritura: Runnable? = null
     private var modeloEnPausa = false
     private var ultimoAdjunto: Adjunto? = null
 
@@ -177,7 +180,10 @@ class MainActivity : Activity() {
             generador = null
             asistente?.generador = null
             modeloEnPausa = true
-            principal.post { chipModelo.text = "modelo en pausa" }
+            principal.post {
+                chipModelo.text = "modelo en pausa"
+                pintarEstadoModelo()
+            }
         }
     }
 
@@ -210,7 +216,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
-        detenerAnimacion()
+        quitarPuntos()
         generador?.cerrar()
         trabajador.shutdownNow()
         super.onDestroy()
@@ -268,13 +274,14 @@ class MainActivity : Activity() {
             fitsSystemWindows = true
         }
         raiz.addView(construirEncabezado())
-        raiz.addView(construirDivisor())
+        raiz.addView(divisor())
         raiz.addView(construirModos())
 
         scrollChat = ScrollView(this).apply {
             isFillViewport = true
             clipToPadding = false
-            setPadding(dp(14f), dp(10f), dp(14f), dp(10f))
+            isVerticalScrollBarEnabled = false
+            setPadding(dp(Espacio.L), dp(Espacio.S), dp(Espacio.L), dp(Espacio.S))
         }
         contenedorChat = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scrollChat.addView(
@@ -288,127 +295,170 @@ class MainActivity : Activity() {
 
         avisoModelo = construirAvisoModelo()
         raiz.addView(avisoModelo)
-        sugerencias = construirSugerencias()
-        raiz.addView(sugerencias)
         raiz.addView(construirBarraEntrada())
         return raiz
     }
+
+    // -------------------------------------------------------- encabezado
 
     private fun construirEncabezado(): View {
         val fila = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16f), dp(14f), dp(12f), dp(12f))
+            setPadding(dp(Espacio.M), dp(Espacio.M - 2f), dp(Espacio.M), dp(Espacio.M - 2f))
         }
 
-        val botonChats = TextView(this).estilo(17f, Paleta.TENUE).apply {
-            text = "☰"
-            gravity = Gravity.CENTER
-            background = fondoPulsable(Paleta.PANEL, dp(19f).toFloat(), Paleta.BORDE, dp(1f))
-            setOnClickListener { chats?.mostrar() }
-            contentDescription = "Chats guardados"
-        }
         fila.addView(
-            botonChats,
-            LinearLayout.LayoutParams(dp(38f), dp(38f)).apply { rightMargin = dp(10f) },
+            botonIcono(Iconos.chats(), "Chats guardados") { chats?.mostrar() },
+            LinearLayout.LayoutParams(dp(40f), dp(40f)).apply { rightMargin = dp(Espacio.M) },
         )
 
         val textos = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val titulo = TextView(this).estilo(21f, Paleta.TEXTO, negrita = true)
-        val nombre = SpannableString("Rama AI")
-        nombre.setSpan(ForegroundColorSpan(Paleta.ACENTO), 5, 7, 0)
-        titulo.text = nombre
-        subtitulo = TextView(this).estilo(11.5f, Paleta.TENUE)
+        val titulo = TextView(this).estilo(Tipo.SUBTITULO + 2f, Paleta.TEXTO, negrita = true, interlineado = 1f).apply {
+            text = "Rama"
+            letterSpacing = -0.01f
+        }
+        subtitulo = TextView(this).estilo(Tipo.MICRO, Paleta.TEXTO_3, interlineado = 1f).apply {
+            setPadding(0, dp(3f), 0, 0)
+        }
         textos.addView(titulo)
         textos.addView(subtitulo)
         fila.addView(textos, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
-        chipModelo = TextView(this).estilo(12.5f, Paleta.TENUE).apply {
-            text = "sin modelo"
-            padding(dp(11f), dp(7f))
-            background = fondoPulsable(Paleta.PANEL, dp(18f).toFloat(), Paleta.BORDE, dp(1f))
-            setOnClickListener { modelos?.mostrar() }
-            contentDescription = "Elegir modelo"
-        }
-        fila.addView(
-            chipModelo,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-            ).apply { rightMargin = dp(7f) },
-        )
+        fila.addView(construirChipModelo(), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { rightMargin = dp(Espacio.S) })
 
-        botonPensar = TextView(this).estilo(13f, Paleta.ACENTO_OSCURO, negrita = true).apply {
-            text = "🧠"
-            padding(dp(12f), dp(8f))
-            setOnClickListener { alternarModoPensar() }
-        }
+        botonPensar = botonIcono(
+            Iconos.destello(), "Ver el razonamiento", relleno = true, tamanioIcono = 17f,
+        ) { alternarModoPensar() }
         pintarBotonPensar()
         fila.addView(botonPensar)
         return fila
+    }
+
+    /**
+     * El estado del modelo, dicho en el menor espacio posible.
+     *
+     * Un punto de color y un nombre: verde si está cargado, ámbar si falta.
+     * Es la información que más se consulta y la que menos lugar tiene.
+     */
+    private fun construirChipModelo(): View {
+        val chip = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            padding(dp(Espacio.M - 2f), dp(7f))
+            background = fondoPulsable(Paleta.SUPERFICIE, dp(Radio.PILDORA).toFloat(), Paleta.BORDE, dp(1f))
+            setOnClickListener { modelos?.mostrar() }
+            contentDescription = "Elegir modelo"
+        }
+        puntoModelo = punto(Paleta.AVISO, 7f)
+        chip.addView(puntoModelo, LinearLayout.LayoutParams(dp(7f), dp(7f)).apply { rightMargin = dp(7f) })
+        chipModelo = TextView(this).estilo(Tipo.ETIQUETA, Paleta.TEXTO_2, interlineado = 1f).apply {
+            text = "sin modelo"
+            maxWidth = dp(96f)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        chip.addView(chipModelo)
+        return chip
+    }
+
+    /** El punto del chip sigue al estado real, sin que haya que leer nada. */
+    private fun pintarEstadoModelo(cargando: Boolean = false) {
+        val color = when {
+            cargando || modeloEnPausa -> Paleta.PENSAR
+            generador != null -> Paleta.ACENTO
+            else -> Paleta.AVISO
+        }
+        puntoModelo.background = fondoRedondeado(color, dp(3.5f).toFloat())
     }
 
     private fun alternarModoPensar() {
         modoPensar = !modoPensar
         pintarBotonPensar()
         avisar(
-            if (modoPensar) "Modo pensar activado: te muestro cada paso de mi razonamiento."
-            else "Modo pensar desactivado: sólo la respuesta."
+            if (modoPensar) "Razonamiento visible: te muestro cada paso."
+            else "Razonamiento oculto: sólo la respuesta."
         )
     }
 
     private fun pintarBotonPensar() {
-        botonPensar.background = fondoPulsable(
-            if (modoPensar) Paleta.PENSAR else Paleta.PANEL_ALTO,
-            dp(20f).toFloat(),
-            Paleta.BORDE,
-            if (modoPensar) 0 else dp(1f),
+        val activo = modoPensar
+        botonPensar.setImageDrawable(
+            Icono(Iconos.destello(), if (activo) Paleta.PENSAR else Paleta.TEXTO_3, relleno = true)
         )
-        botonPensar.setTextColor(if (modoPensar) 0xFF1A102B.toInt() else Paleta.TENUE)
-    }
-
-    private fun construirDivisor(): View = View(this).apply {
-        setBackgroundColor(Paleta.BORDE)
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1f))
+        botonPensar.background = fondoPulsable(
+            if (activo) Paleta.PENSAR_TENUE else Paleta.SUPERFICIE,
+            dp(20f).toFloat(),
+            if (activo) Paleta.PENSAR else Paleta.BORDE,
+            dp(1f),
+        )
     }
 
     /**
-     * La franja que avisa que falta el modelo.
+     * El aviso de que falta el modelo.
      *
-     * Sin modelo Rama sólo sabe lo que tiene escrito, y eso desconcierta: uno
-     * pregunta cualquier cosa y no entiende por qué no contesta. Mejor decirlo
-     * todo el tiempo, y que se pueda tocar para resolverlo.
+     * Antes era una franja naranja de lado a lado, que es como avisa un
+     * navegador de que algo se rompió. Acá no se rompió nada: falta un paso.
+     * Una tarjeta con una franja ámbar al costado dice lo mismo sin gritar.
      */
-    private fun construirAvisoModelo(): TextView =
-        TextView(this).estilo(12.5f, 0xFF1A1206.toInt(), negrita = true).apply {
-            text = "⚠  Sin modelo cargado · sólo respondo lo que tengo escrito · tocá para descargar uno"
-            gravity = Gravity.CENTER
-            padding(dp(12f), dp(9f))
-            background = fondoPulsable(0xFFFFB74D.toInt(), dp(10f).toFloat())
+    private fun construirAvisoModelo(): View {
+        val tarjeta = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = fondoConFranja(Paleta.AVISO_TENUE, Paleta.AVISO, dp(Radio.MEDIO).toFloat(), dp(3f))
+            setPadding(dp(Espacio.M + 2f), dp(Espacio.M - 2f), dp(Espacio.M), dp(Espacio.M - 2f))
             setOnClickListener { modelos?.mostrar() }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             ).apply {
-                leftMargin = dp(12f)
-                rightMargin = dp(12f)
-                bottomMargin = dp(6f)
+                leftMargin = dp(Espacio.M)
+                rightMargin = dp(Espacio.M)
+                bottomMargin = dp(Espacio.S)
             }
         }
+        tarjeta.addView(
+            ImageView(this).apply { setImageDrawable(Icono(Iconos.advertencia(), Paleta.AVISO)) },
+            LinearLayout.LayoutParams(dp(17f), dp(17f)).apply { rightMargin = dp(Espacio.M - 2f) },
+        )
+        val textos = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        textos.addView(
+            TextView(this).estilo(Tipo.SECUNDARIO, Paleta.TEXTO, negrita = true, interlineado = 1f).apply {
+                text = "Todavía no hay modelo"
+            }
+        )
+        textos.addView(
+            TextView(this).estilo(Tipo.MICRO + 0.5f, Paleta.TEXTO_2, interlineado = 1.2f).apply {
+                text = "Respondo con lo que tengo escrito. Tocá para elegir uno."
+                setPadding(0, dp(2f), 0, 0)
+            }
+        )
+        tarjeta.addView(textos, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        return tarjeta
+    }
 
     private fun actualizarAvisoModelo() {
         avisoModelo.visibility = if (generador == null) View.VISIBLE else View.GONE
+        pintarEstadoModelo()
     }
+
+    // ------------------------------------------------------------- modos
 
     /** La fila de modos: lo primero que se ve, porque cambia todo lo demás. */
     private fun construirModos(): View {
         val carrusel = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
-            setPadding(dp(12f), dp(9f), dp(12f), dp(3f))
+            clipToPadding = false
+            setPadding(dp(Espacio.M), dp(Espacio.S), dp(Espacio.M), dp(Espacio.S))
         }
         val fila = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         for (modo in Modos.TODOS) {
-            val chip = TextView(this).estilo(12.5f).apply {
-                text = "${modo.icono} ${modo.nombre}"
-                padding(dp(12f), dp(7f))
+            // Sin el emoji: el nombre solo se lee más rápido y se ve igual en
+            // todos los teléfonos.
+            val chip = TextView(this).estilo(Tipo.ETIQUETA + 0.5f, interlineado = 1f).apply {
+                text = modo.nombre
+                padding(dp(Espacio.M + 2f), dp(Espacio.S - 1f))
                 setOnClickListener { elegirModo(modo) }
                 contentDescription = "Modo ${modo.nombre}: ${modo.descripcion}"
             }
@@ -417,7 +467,7 @@ class MainActivity : Activity() {
                 chip,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                ).apply { rightMargin = dp(7f) },
+                ).apply { rightMargin = dp(Espacio.S - 1f) },
             )
         }
         carrusel.addView(fila)
@@ -430,72 +480,153 @@ class MainActivity : Activity() {
         asistente?.modo = modo
         preferencias().edit().putString("modo", modo.id).apply()
         pintarModos()
-        avisar("${modo.icono} ${modo.nombre} · ${modo.descripcion}")
+        avisar("${modo.nombre} · ${modo.descripcion}")
     }
 
+    /**
+     * El modo activo se marca con el acento diluido, no pintado entero.
+     *
+     * Un chip verde lleno le saca protagonismo a la conversación, que es lo
+     * único que el usuario vino a leer.
+     */
     private fun pintarModos() {
         for ((modo, chip) in chipsModo) {
             val activo = modo.id == modoActual.id
             chip.background = fondoPulsable(
-                if (activo) Paleta.ACENTO else Paleta.PANEL,
-                dp(16f).toFloat(),
-                Paleta.BORDE,
-                if (activo) 0 else dp(1f),
+                if (activo) Paleta.ACENTO_TENUE else Paleta.SUPERFICIE,
+                dp(Radio.PILDORA).toFloat(),
+                if (activo) Paleta.ACENTO else Paleta.BORDE,
+                dp(1f),
             )
-            chip.setTextColor(if (activo) Paleta.ACENTO_OSCURO else Paleta.TENUE)
+            chip.setTextColor(if (activo) Paleta.ACENTO else Paleta.TEXTO_2)
+            chip.setTypeface(null, if (activo) Typeface.BOLD else Typeface.NORMAL)
         }
     }
 
-    private fun construirSugerencias(): View {
-        val carrusel = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            setPadding(dp(12f), 0, dp(12f), dp(4f))
+    // -------------------------------------------------------- bienvenida
+
+    /**
+     * La portada del chat vacío.
+     *
+     * Un chat en blanco no dice qué es esto ni qué se le puede pedir. Antes lo
+     * resolvía un párrafo de saludo dentro de una burbuja, que se leía como si
+     * Rama ya estuviera hablando sola. Una portada con la marca y cuatro
+     * ejemplos tocables cumple la misma función y desaparece sin dejar rastro
+     * apenas empieza la conversación.
+     */
+    private fun construirBienvenida(): View {
+        val columna = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(Espacio.XS), dp(Espacio.XL), dp(Espacio.XS), dp(Espacio.S))
         }
-        val fila = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val ejemplos = listOf(
-            "¿quién sos?", "¿cómo funcionás?", "cuánto es 12*7", "¿qué hora es?",
-            "tirá un dado de 20", "contame un chiste", "aprende: mi color favorito = verde",
-        )
-        for (ejemplo in ejemplos) {
-            val chip = TextView(this).estilo(12.5f, Paleta.TENUE).apply {
-                text = ejemplo
-                padding(dp(13f), dp(7f))
-                background = fondoPulsable(Paleta.PANEL, dp(16f).toFloat(), Paleta.BORDE, dp(1f))
-                setOnClickListener { enviar(ejemplo) }
+
+        val emblema = ImageView(this).apply {
+            setImageDrawable(Icono(Iconos.marca(), Paleta.ACENTO, grosor = 1.7f))
+            val margen = dp(15f)
+            setPadding(margen, margen, margen, margen)
+            background = fondoRedondeado(Paleta.ACENTO_TENUE, dp(26f).toFloat(), Paleta.BORDE, dp(1f))
+        }
+        columna.addView(emblema, LinearLayout.LayoutParams(dp(52f), dp(52f)))
+
+        columna.addView(
+            TextView(this).estilo(Tipo.TITULO, Paleta.TEXTO, negrita = true, interlineado = 1f).apply {
+                text = "Rama"
+                gravity = Gravity.CENTER
+                setPadding(0, dp(Espacio.M), 0, 0)
             }
-            val parametros = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-            ).apply { rightMargin = dp(7f) }
-            fila.addView(chip, parametros)
-        }
-        carrusel.addView(fila)
-        return carrusel
+        )
+        columna.addView(
+            TextView(this).estilo(Tipo.SECUNDARIO, Paleta.TEXTO_2, interlineado = 1.4f).apply {
+                text = "Corro entera adentro de tu teléfono. El modelo que escribe mis " +
+                    "respuestas es local: no consulto la IA de nadie y nada de lo que " +
+                    "hablemos sale de acá."
+                gravity = Gravity.CENTER
+                setPadding(dp(Espacio.M), dp(Espacio.S), dp(Espacio.M), dp(Espacio.XL))
+            }
+        )
+
+        columna.addView(
+            TextView(this).apply { text = "Para empezar" }.rotulo().apply {
+                gravity = Gravity.START
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { bottomMargin = dp(Espacio.S) }
+            }
+        )
+        for (ejemplo in EJEMPLOS) columna.addView(filaDeEjemplo(ejemplo))
+        return columna
     }
 
+    /** Cada sugerencia es una fila entera y tocable, no un chip apretado. */
+    private fun filaDeEjemplo(ejemplo: String): View {
+        val fila = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = fondoPulsable(Paleta.SUPERFICIE, dp(Radio.MEDIO).toFloat(), Paleta.BORDE, dp(1f))
+            setPadding(dp(Espacio.M + 2f), dp(Espacio.M), dp(Espacio.M), dp(Espacio.M))
+            setOnClickListener { enviar(ejemplo) }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { bottomMargin = dp(Espacio.S) }
+        }
+        fila.addView(
+            TextView(this).estilo(Tipo.SECUNDARIO + 0.5f, Paleta.TEXTO, interlineado = 1f).apply {
+                text = ejemplo
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        fila.addView(
+            ImageView(this).apply {
+                setImageDrawable(Icono(Iconos.chevron(), Paleta.TEXTO_3))
+                rotation = -90f
+            },
+            LinearLayout.LayoutParams(dp(16f), dp(16f)),
+        )
+        return fila
+    }
+
+    // ----------------------------------------------------- barra de entrada
+
+    /**
+     * Todo lo de escribir dentro de una sola cápsula.
+     *
+     * Antes eran tres pastillas sueltas —adjuntar, campo, enviar— separadas por
+     * aire, y la fila se leía como tres cosas distintas. Metidas en un mismo
+     * contorno se leen como lo que son: un solo lugar donde uno escribe.
+     */
     private fun construirBarraEntrada(): View {
         val barra = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(Espacio.M), 0, dp(Espacio.M), dp(Espacio.M))
+        }
+
+        val capsula = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.BOTTOM
-            setPadding(dp(12f), dp(8f), dp(12f), dp(12f))
+            background = fondoRedondeado(Paleta.SUPERFICIE, dp(Radio.CAPSULA).toFloat(), Paleta.BORDE, dp(1f))
+            setPadding(dp(Espacio.XS + 1f), dp(Espacio.XS + 1f), dp(Espacio.XS + 1f), dp(Espacio.XS + 1f))
         }
 
-        val adjuntar = TextView(this).estilo(20f, Paleta.TENUE, negrita = true).apply {
-            text = "＋"
-            gravity = Gravity.CENTER
-            background = fondoPulsable(Paleta.PANEL, dp(22f).toFloat(), Paleta.BORDE, dp(1f))
-            setOnClickListener { pedirArchivo() }
-            contentDescription = "Adjuntar foto, PDF o video"
-        }
-        barra.addView(adjuntar, LinearLayout.LayoutParams(dp(44f), dp(44f)).apply { rightMargin = dp(8f) })
+        capsula.addView(
+            botonIcono(
+                Iconos.mas(), "Adjuntar foto, PDF o video",
+                lado = 38f, tamanioIcono = 18f,
+                fondo = Color.TRANSPARENT, borde = Color.TRANSPARENT,
+                color = Paleta.TEXTO_3,
+            ) { pedirArchivo() },
+            LinearLayout.LayoutParams(dp(38f), dp(38f)),
+        )
 
         entrada = EditText(this).apply {
-            hint = "Escribí algo…"
-            setHintTextColor(Paleta.TENUE)
+            hint = "Preguntame algo…"
+            setHintTextColor(Paleta.TEXTO_3)
             setTextColor(Paleta.TEXTO)
-            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f)
-            background = fondoRedondeado(Paleta.PANEL, dp(22f).toFloat(), Paleta.BORDE, dp(1f))
-            padding(dp(16f), dp(10f))
-            maxLines = 4
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, Tipo.CUERPO)
+            setLineSpacing(0f, 1.25f)
+            background = null
+            setPadding(dp(Espacio.XS), dp(Espacio.S + 2f), dp(Espacio.S), dp(Espacio.S + 2f))
+            maxLines = 5
             setHorizontallyScrolling(false)
             // Sin la bandera MULTI_LINE el teclado muestra "enviar" en lugar de
             // un salto de línea, que es lo que uno espera en un chat.
@@ -517,29 +648,59 @@ class MainActivity : Activity() {
                 }
             })
         }
-        barra.addView(
+        capsula.addView(
             entrada,
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
 
-        botonEnviar = TextView(this).estilo(19f, Paleta.ACENTO_OSCURO, negrita = true).apply {
-            text = "↑"
-            gravity = Gravity.CENTER
-            alpha = 0.45f
-            background = fondoPulsable(Paleta.ACENTO, dp(22f).toFloat())
-            setOnClickListener {
-                if (generando) {
-                    generando = false
-                    asistente?.cancelar()
-                    pintarBotonEnviar()
-                } else {
-                    enviar(entrada.text.toString())
-                }
+        botonEnviar = botonIcono(
+            Iconos.enviar(), "Enviar",
+            lado = 38f, tamanioIcono = 18f,
+            color = Paleta.SOBRE_ACENTO, fondo = Paleta.ACENTO, borde = Color.TRANSPARENT,
+        ) {
+            if (generando) {
+                generando = false
+                asistente?.cancelar()
+                pintarBotonEnviar()
+            } else {
+                enviar(entrada.text.toString())
             }
-            contentDescription = "Enviar"
         }
-        barra.addView(botonEnviar, LinearLayout.LayoutParams(dp(44f), dp(44f)).apply { leftMargin = dp(8f) })
+        capsula.addView(botonEnviar, LinearLayout.LayoutParams(dp(38f), dp(38f)))
+        pintarBotonEnviar()
+
+        barra.addView(capsula, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ))
         return barra
+    }
+
+    /**
+     * El botón de enviar dice en qué estado está la conversación.
+     *
+     * Apagado si no hay nada escrito, verde si hay algo para mandar, y un
+     * cuadrado de detener mientras el modelo escribe.
+     */
+    private fun pintarBotonEnviar() {
+        val hayTexto = entrada.text.isNotBlank()
+        if (generando) {
+            botonEnviar.setImageDrawable(Icono(Iconos.detener(), Paleta.TEXTO, relleno = true))
+            botonEnviar.background = fondoPulsable(Paleta.SUPERFICIE_ALTA, dp(19f).toFloat(), Paleta.BORDE, dp(1f))
+            botonEnviar.contentDescription = "Detener"
+            botonEnviar.alpha = 1f
+            return
+        }
+        botonEnviar.setImageDrawable(
+            Icono(Iconos.enviar(), if (hayTexto) Paleta.SOBRE_ACENTO else Paleta.TEXTO_3)
+        )
+        botonEnviar.background = fondoPulsable(
+            if (hayTexto) Paleta.ACENTO else Paleta.SUPERFICIE_ALTA,
+            dp(19f).toFloat(),
+            Paleta.BORDE,
+            if (hayTexto) 0 else dp(1f),
+        )
+        botonEnviar.contentDescription = "Enviar"
+        botonEnviar.alpha = 1f
     }
 
     // ----------------------------------------------------------- mensajes
@@ -548,7 +709,7 @@ class MainActivity : Activity() {
         val limpio = texto.trim()
         if (limpio.isEmpty()) return
         if (generando) {
-            avisar("Esperá que termine de escribir, o tocá ✕ para cortarla.")
+            avisar("Esperá que termine de escribir, o tocá el botón de detener.")
             return
         }
         val ayudante = asistente
@@ -558,6 +719,7 @@ class MainActivity : Activity() {
         }
         entrada.setText("")
         if (!asegurarModelo(limpio)) return
+        quitarBienvenida()
         burbujaUsuario(limpio)
 
         val adjunto = ultimoAdjunto
@@ -568,7 +730,7 @@ class MainActivity : Activity() {
 
         val bloque = if (modoPensar) bloquePensar() else null
         val burbuja = burbujaRama("")
-        animarEscritura(burbuja)
+        mostrarPuntos()
         val acumulado = StringBuilder()
         generando = true
         pintarBotonEnviar()
@@ -584,7 +746,7 @@ class MainActivity : Activity() {
                 alPaso = { paso -> principal.post { bloque?.agregarPaso(paso.titulo, paso.detalle); alFinal() } },
             ) { fragmento ->
                 principal.post {
-                    detenerAnimacion()
+                    quitarPuntos()
                     acumulado.append(fragmento)
                     burbuja.text = acumulado
                     alFinal()
@@ -593,7 +755,7 @@ class MainActivity : Activity() {
             }
 
             principal.post {
-                detenerAnimacion()
+                quitarPuntos()
                 generando = false
                 pintarBotonEnviar()
                 val texto = respuesta.texto
@@ -629,30 +791,39 @@ class MainActivity : Activity() {
      */
     private fun selloRespaldo(respaldo: Respaldo) {
         val color = when (respaldo) {
-            Respaldo.CALCULO -> Paleta.ACENTO
-            Respaldo.WEB -> Paleta.ACENTO
-            Respaldo.BASE -> Paleta.TENUE
-            Respaldo.SOLO_MODELO -> 0xFFFFB74D.toInt()
+            Respaldo.CALCULO, Respaldo.WEB -> Paleta.ACENTO
+            Respaldo.BASE -> Paleta.TEXTO_3
+            Respaldo.SOLO_MODELO -> Paleta.AVISO
         }
-        val icono = when (respaldo) {
-            Respaldo.CALCULO -> "🧮"
-            Respaldo.WEB -> "🌐"
-            Respaldo.BASE -> "📗"
-            Respaldo.SOLO_MODELO -> "⚠"
+        val fondo = when (respaldo) {
+            Respaldo.CALCULO, Respaldo.WEB -> Paleta.ACENTO_TENUE
+            Respaldo.BASE -> Paleta.SUPERFICIE
+            Respaldo.SOLO_MODELO -> Paleta.AVISO_TENUE
         }
-        val sello = TextView(this).estilo(11.5f, color).apply {
-            text = "$icono  ${respaldo.etiqueta}"
-            padding(dp(9f), dp(4f))
-            background = fondoRedondeado(Paleta.PANEL, dp(9f).toFloat(), Paleta.BORDE, dp(1f))
+        // Un aviso lleva su triángulo; lo demás, un visto. Dos iconos alcanzan:
+        // lo que importa es si el dato tiene respaldo o no.
+        val trazo = if (respaldo == Respaldo.SOLO_MODELO) Iconos.advertencia() else Iconos.visto()
+
+        val sello = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            padding(dp(Espacio.S + 2f), dp(Espacio.XS + 1f))
+            background = fondoPulsable(fondo, dp(Radio.CHICO).toFloat(), color, dp(1f))
             setOnClickListener { avisar(respaldo.explicacion) }
             contentDescription = respaldo.explicacion
         }
+        sello.addView(
+            ImageView(this).apply { setImageDrawable(Icono(trazo, color, grosor = 2.1f)) },
+            LinearLayout.LayoutParams(dp(11f), dp(11f)).apply { rightMargin = dp(6f) },
+        )
+        sello.addView(TextView(this).apply { text = respaldo.etiqueta }.rotulo(color))
+
         val parametros = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply {
             gravity = Gravity.START
-            leftMargin = dp(4f)
-            bottomMargin = dp(6f)
+            topMargin = dp(Espacio.S + 2f)
+            bottomMargin = dp(Espacio.XS)
         }
         contenedorChat.addView(sello, parametros)
         alFinal()
@@ -662,30 +833,47 @@ class MainActivity : Activity() {
     private fun fichaFuentes(fuentes: List<Resultado>) {
         val ficha = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = fondoRedondeado(Paleta.PANEL, dp(14f).toFloat(), Paleta.BORDE, dp(1f))
-            setPadding(dp(14f), dp(11f), dp(14f), dp(11f))
+            background = fondoRedondeado(Paleta.SUPERFICIE, dp(Radio.MEDIO).toFloat(), Paleta.BORDE, dp(1f))
+            setPadding(dp(Espacio.L - 2f), dp(Espacio.M), dp(Espacio.L - 2f), dp(Espacio.M))
         }
         ficha.addView(
-            TextView(this).estilo(11.5f, Paleta.TENUE, negrita = true).apply {
-                text = "FUENTES CONSULTADAS"
-                letterSpacing = 0.08f
-                setPadding(0, 0, 0, dp(6f))
+            TextView(this).apply { text = "Fuentes consultadas" }.rotulo().apply {
+                setPadding(0, 0, 0, dp(Espacio.S))
             }
         )
-        for (fuente in fuentes) {
-            val item = TextView(this).estilo(12.5f, Paleta.TEXTO).apply {
-                text = "${fuente.titulo}\n${fuente.url}"
-                setPadding(0, dp(4f), 0, dp(4f))
+        for ((i, fuente) in fuentes.withIndex()) {
+            if (i > 0) ficha.addView(divisor().apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(1f),
+                ).apply { topMargin = dp(Espacio.S); bottomMargin = dp(Espacio.S) }
+            })
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = fondoPulsable(Color.TRANSPARENT, dp(Radio.CHICO).toFloat())
                 setOnClickListener { abrirEnlace(fuente.url) }
             }
+            item.addView(
+                TextView(this).estilo(Tipo.ETIQUETA + 1f, Paleta.TEXTO, interlineado = 1.25f).apply {
+                    text = fuente.titulo
+                    maxLines = 2
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }
+            )
+            item.addView(
+                TextView(this).estilo(Tipo.MICRO, Paleta.ACENTO, interlineado = 1f).apply {
+                    text = fuente.url
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+                    setPadding(0, dp(2f), 0, 0)
+                }
+            )
             ficha.addView(item)
         }
         val parametros = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply {
-            topMargin = dp(2f)
-            bottomMargin = dp(8f)
-            rightMargin = dp(24f)
+            topMargin = dp(Espacio.S)
+            bottomMargin = dp(Espacio.S)
         }
         contenedorChat.addView(ficha, parametros)
         alFinal()
@@ -697,11 +885,6 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             avisar("No pude abrir el enlace.")
         }
-    }
-
-    private fun pintarBotonEnviar() {
-        botonEnviar.text = if (generando) "✕" else "↑"
-        botonEnviar.alpha = if (generando || entrada.text.isNotBlank()) 1f else 0.45f
     }
 
     // ------------------------------------------------------------ modelo
@@ -742,6 +925,7 @@ class MainActivity : Activity() {
             return
         }
         chipModelo.text = "cargando…"
+        pintarEstadoModelo(cargando = true)
         enSegundoPlano("cargando el modelo") {
             generador?.cerrar()
             val abierto = Generador.abrir(archivo)
@@ -808,6 +992,8 @@ class MainActivity : Activity() {
         historial.clear()
         ultimoAdjunto = null
         contenedorChat.removeAllViews()
+        bienvenida = null
+        indicador = null
         preferencias().edit().putString("chat", chatActual).apply()
         actualizarSugerencias()
         saludar()
@@ -821,6 +1007,8 @@ class MainActivity : Activity() {
         historial.addAll(mensajes)
         ultimoAdjunto = null
         contenedorChat.removeAllViews()
+        bienvenida = null
+        indicador = null
         preferencias().edit().putString("chat", id).apply()
 
         for (mensaje in mensajes) {
@@ -831,38 +1019,49 @@ class MainActivity : Activity() {
         alFinal()
     }
 
-    /** Las sugerencias sólo estorban cuando la conversación ya arrancó. */
+    /** La portada sólo tiene sentido con el chat en blanco. */
     private fun actualizarSugerencias() {
-        sugerencias.visibility = if (historial.isEmpty()) View.VISIBLE else View.GONE
+        if (historial.isEmpty()) mostrarBienvenida() else quitarBienvenida()
     }
 
-    private fun saludar() {
-        burbujaRama(
-            "¡Hola! Soy Rama. Corro entera adentro de tu teléfono: el modelo que escribe " +
-                "mis respuestas es mío y local, no consulto la IA de nadie.\n\n" +
-                "Los modos de arriba cambian cómo escribo, ☰ guarda y abre tus chats, y " +
-                "siempre contesto en español."
+    private fun saludar() = mostrarBienvenida()
+
+    private fun mostrarBienvenida() {
+        if (bienvenida != null) return
+        val portada = construirBienvenida()
+        bienvenida = portada
+        contenedorChat.addView(portada, 0)
+    }
+
+    private fun quitarBienvenida() {
+        bienvenida?.let { contenedorChat.removeView(it) }
+        bienvenida = null
+    }
+
+    /**
+     * Tres puntos latiendo mientras el modelo todavía no soltó una palabra.
+     *
+     * Es una vista aparte y no texto dentro de la respuesta: así el ancho no
+     * salta a cada latido, y cuando llega el primer fragmento el indicador
+     * desaparece sin dejar nada raro en el medio.
+     */
+    private fun mostrarPuntos() {
+        quitarPuntos()
+        val puntos = PuntosPensando(this)
+        indicador = puntos
+        contenedorChat.addView(
+            puntos,
+            LinearLayout.LayoutParams(dp(44f), dp(22f)).apply {
+                topMargin = dp(Espacio.XS)
+                bottomMargin = dp(Espacio.S)
+            },
         )
+        alFinal()
     }
 
-    /** Tres puntitos que laten mientras el modelo arranca. */
-    private fun animarEscritura(burbuja: TextView) {
-        detenerAnimacion()
-        var paso = 0
-        val latido = object : Runnable {
-            override fun run() {
-                burbuja.text = "·".repeat(1 + paso % 3)
-                paso++
-                principal.postDelayed(this, 350)
-            }
-        }
-        animacionEscritura = latido
-        principal.post(latido)
-    }
-
-    private fun detenerAnimacion() {
-        animacionEscritura?.let { principal.removeCallbacks(it) }
-        animacionEscritura = null
+    private fun quitarPuntos() {
+        indicador?.let { contenedorChat.removeView(it) }
+        indicador = null
     }
 
     private fun copiar(texto: String) {
@@ -927,54 +1126,101 @@ class MainActivity : Activity() {
         }
     }
 
+    /**
+     * Lo que escribe el usuario: una burbuja compacta, pegada a la derecha.
+     *
+     * Va en gris y no en el azul de antes. El color en un chat tiene que
+     * significar algo, y acá lo único que necesita significado es el acento.
+     */
     private fun burbujaUsuario(texto: String) {
-        val burbuja = TextView(this).estilo(15f, Color.WHITE).apply {
+        val burbuja = TextView(this).estilo(Tipo.CUERPO, Paleta.TEXTO, interlineado = 1.35f).apply {
             text = texto
-            padding(dp(14f), dp(10f))
+            setPadding(dp(Espacio.L - 2f), dp(Espacio.M - 1f), dp(Espacio.L - 2f), dp(Espacio.M - 1f))
             setOnLongClickListener { copiar(texto); true }
             background = fondoRedondeado(
-                Paleta.USUARIO, 0f,
-                radios = esquinas(dp(16f).toFloat(), abajoDerecha = dp(4f).toFloat()),
+                Paleta.SUPERFICIE_ALTA, 0f, Paleta.BORDE, dp(1f),
+                radios = esquinas(dp(Radio.BURBUJA).toFloat(), abajoDerecha = dp(Espacio.XS + 1f).toFloat()),
             )
         }
-        agregar(burbuja, Gravity.END)
-    }
-
-    private fun burbujaRama(texto: String): TextView {
-        val burbuja = TextView(this).estilo(15f, Paleta.TEXTO).apply {
-            text = conFormato(texto)
-            padding(dp(14f), dp(11f))
-            setOnLongClickListener { copiar(this.text.toString()); true }
-            background = fondoRedondeado(
-                Paleta.PANEL, 0f, Paleta.BORDE, dp(1f),
-                radios = esquinas(dp(16f).toFloat(), abajoIzquierda = dp(4f).toFloat()),
-            )
-        }
-        agregar(burbuja, Gravity.START)
-        return burbuja
-    }
-
-    private fun avisar(texto: String) {
-        val nota = TextView(this).estilo(12f, Paleta.TENUE).apply {
-            text = texto
-            gravity = Gravity.CENTER
-            padding(dp(10f), dp(6f))
-        }
-        agregar(nota, Gravity.CENTER_HORIZONTAL, anchoMaximo = false)
-    }
-
-    private fun agregar(vista: View, alineacion: Int, anchoMaximo: Boolean = true) {
         val parametros = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply {
-            gravity = alineacion
-            topMargin = dp(6f)
-            bottomMargin = dp(6f)
+            gravity = Gravity.END
+            topMargin = dp(Espacio.M)
+            bottomMargin = dp(Espacio.XS)
         }
-        if (anchoMaximo && vista is TextView) {
-            vista.maxWidth = (resources.displayMetrics.widthPixels * 0.84f).toInt()
+        burbuja.maxWidth = (resources.displayMetrics.widthPixels * 0.80f).toInt()
+        contenedorChat.addView(burbuja, parametros)
+        alFinal()
+    }
+
+    /**
+     * Lo que escribe Rama: ancho completo y sin burbuja.
+     *
+     * Una respuesta de un modelo son párrafos, no una frase. Encerrarlos en un
+     * globo del 84% del ancho los parte en renglones cortos y los hace difíciles
+     * de leer, que es justo lo contrario de lo que se busca. Ancho completo,
+     * con un rótulo arriba para saber quién habla, se lee como un texto.
+     */
+    private fun burbujaRama(texto: String): TextView {
+        val bloque = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                topMargin = dp(Espacio.L)
+                bottomMargin = dp(Espacio.XS)
+            }
         }
-        contenedorChat.addView(vista, parametros)
+        bloque.addView(rotuloDeRama())
+
+        val cuerpo = TextView(this).estilo(Tipo.CUERPO, Paleta.TEXTO, interlineado = 1.5f).apply {
+            text = conFormato(texto)
+            setPadding(0, dp(Espacio.S - 2f), 0, 0)
+            setOnLongClickListener { copiar(this.text.toString()); true }
+        }
+        bloque.addView(cuerpo)
+        contenedorChat.addView(bloque)
+        alFinal()
+        return cuerpo
+    }
+
+    /** Un punto verde y el nombre: quién está hablando, sin ocupar lugar. */
+    private fun rotuloDeRama(): View {
+        val fila = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        fila.addView(
+            punto(Paleta.ACENTO, 6f),
+            LinearLayout.LayoutParams(dp(6f), dp(6f)).apply { rightMargin = dp(7f) },
+        )
+        fila.addView(TextView(this).apply { text = "Rama" }.rotulo(Paleta.TEXTO_3))
+        return fila
+    }
+
+    /**
+     * Una nota del sistema, no de la conversación.
+     *
+     * Va centrada, en una pastilla tenue: se distingue de un turno del chat
+     * sin necesidad de explicarlo.
+     */
+    private fun avisar(texto: String) {
+        val nota = TextView(this).estilo(Tipo.MICRO + 0.5f, Paleta.TEXTO_3, interlineado = 1.25f).apply {
+            text = texto
+            gravity = Gravity.CENTER
+            padding(dp(Espacio.M), dp(7f))
+            background = fondoRedondeado(Paleta.SUPERFICIE, dp(Radio.PILDORA).toFloat())
+            maxWidth = (resources.displayMetrics.widthPixels * 0.86f).toInt()
+        }
+        val parametros = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = dp(Espacio.S)
+            bottomMargin = dp(Espacio.S)
+        }
+        contenedorChat.addView(nota, parametros)
         alFinal()
     }
 
@@ -993,60 +1239,83 @@ class MainActivity : Activity() {
     // -------------------------------------------------------- modo pensar
 
     /** La tarjeta plegable donde Rama muestra su razonamiento. */
-    private inner class BloquePensar(val tarjeta: LinearLayout, val cabecera: TextView, val detalle: LinearLayout) {
+    private inner class BloquePensar(
+        val tarjeta: LinearLayout,
+        val cabecera: TextView,
+        val flecha: ImageView,
+        val detalle: LinearLayout,
+    ) {
 
         fun agregarPaso(tituloPaso: String, detallePaso: String) {
-            val titulo = TextView(this@MainActivity).estilo(11.5f, Paleta.PENSAR, negrita = true).apply {
-                text = tituloPaso.uppercase()
-                letterSpacing = 0.08f
-            }
-            val cuerpo = TextView(this@MainActivity).estilo(12.5f, Paleta.TENUE, monoespaciada = true).apply {
-                text = detallePaso
-                setPadding(0, dp(2f), 0, dp(10f))
-            }
+            val titulo = TextView(this@MainActivity).apply { text = tituloPaso }.rotulo(Paleta.PENSAR)
+            val cuerpo = TextView(this@MainActivity)
+                .estilo(Tipo.ETIQUETA, Paleta.TEXTO_2, monoespaciada = true, interlineado = 1.35f).apply {
+                    text = detallePaso
+                    setPadding(0, dp(Espacio.XS), 0, dp(Espacio.M))
+                }
             detalle.addView(titulo)
             detalle.addView(cuerpo)
         }
 
         fun cerrar(n: Int) {
-            cabecera.text = "🧠  $n pasos de razonamiento · tocá para ver"
+            cabecera.text = "$n pasos de razonamiento"
             detalle.visibility = View.GONE
+            flecha.rotation = 0f
             tarjeta.setOnClickListener {
                 val visible = detalle.visibility == View.VISIBLE
                 detalle.visibility = if (visible) View.GONE else View.VISIBLE
-                cabecera.text = if (visible) "🧠  $n pasos de razonamiento · tocá para ver"
-                else "🧠  cómo lo pensé · tocá para ocultar"
+                flecha.rotation = if (visible) 0f else 180f
                 if (!visible) alFinal()
             }
         }
     }
 
+    /**
+     * El razonamiento va en índigo, no en verde ni en violeta.
+     *
+     * Es información de segundo plano: tiene que distinguirse de la respuesta
+     * sin competir con ella, y el acento verde ya está tomado por las acciones.
+     */
     private fun bloquePensar(): BloquePensar {
         val tarjeta = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = fondoRedondeado(Paleta.PANEL_ALTO, dp(14f).toFloat(), Paleta.BORDE, dp(1f))
-            setPadding(dp(14f), dp(11f), dp(14f), dp(11f))
+            background = fondoPulsable(Paleta.PENSAR_TENUE, dp(Radio.MEDIO).toFloat(), Paleta.BORDE, dp(1f))
+            setPadding(dp(Espacio.M + 2f), dp(Espacio.M), dp(Espacio.M + 2f), dp(Espacio.M))
         }
-        val cabecera = TextView(this).estilo(12.5f, Paleta.PENSAR, negrita = true).apply {
-            text = "🧠  pensando…"
+
+        val fila = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
+        fila.addView(
+            ImageView(this).apply {
+                setImageDrawable(Icono(Iconos.destello(), Paleta.PENSAR, relleno = true))
+            },
+            LinearLayout.LayoutParams(dp(14f), dp(14f)).apply { rightMargin = dp(Espacio.S) },
+        )
+        val cabecera = TextView(this).apply { text = "Pensando" }.rotulo(Paleta.PENSAR)
+        fila.addView(cabecera, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val flecha = ImageView(this).apply {
+            setImageDrawable(Icono(Iconos.chevron(), Paleta.PENSAR))
+        }
+        fila.addView(flecha, LinearLayout.LayoutParams(dp(14f), dp(14f)))
+
         val detalle = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(10f), 0, 0)
+            setPadding(0, dp(Espacio.M), 0, 0)
         }
-        tarjeta.addView(cabecera)
+        tarjeta.addView(fila)
         tarjeta.addView(detalle)
 
         val parametros = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply {
-            topMargin = dp(6f)
-            bottomMargin = dp(2f)
-            rightMargin = dp(24f)
+            topMargin = dp(Espacio.L)
+            bottomMargin = dp(Espacio.XS)
         }
         contenedorChat.addView(tarjeta, parametros)
         alFinal()
-        return BloquePensar(tarjeta, cabecera, detalle)
+        return BloquePensar(tarjeta, cabecera, flecha, detalle)
     }
 
     // ----------------------------------------------------------- adjuntos
@@ -1084,12 +1353,19 @@ class MainActivity : Activity() {
     }
 
     private fun procesarAdjunto(uri: Uri) {
-        val cargando = TextView(this).estilo(13f, Paleta.TENUE).apply {
-            text = "leyendo el archivo…"
-            padding(dp(14f), dp(10f))
-            background = fondoRedondeado(Paleta.PANEL, dp(14f).toFloat(), Paleta.BORDE, dp(1f))
+        val cargando = TextView(this).estilo(Tipo.SECUNDARIO, Paleta.TEXTO_2, interlineado = 1f).apply {
+            text = "Leyendo el archivo…"
+            padding(dp(Espacio.L - 2f), dp(Espacio.M - 1f))
+            background = fondoRedondeado(Paleta.SUPERFICIE, dp(Radio.MEDIO).toFloat(), Paleta.BORDE, dp(1f))
         }
-        agregar(cargando, Gravity.END)
+        contenedorChat.addView(cargando, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            gravity = Gravity.END
+            topMargin = dp(Espacio.S)
+            bottomMargin = dp(Espacio.XS)
+        })
+        alFinal()
 
         val bloque = if (modoPensar) bloquePensar() else null
         enSegundoPlano("leyendo el archivo") {
@@ -1124,8 +1400,11 @@ class MainActivity : Activity() {
     private fun tarjetaAdjunto(adjunto: Adjunto) {
         val tarjeta = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = fondoRedondeado(Paleta.USUARIO, dp(16f).toFloat())
-            setPadding(dp(6f), dp(6f), dp(6f), dp(8f))
+            background = fondoRedondeado(
+                Paleta.SUPERFICIE_ALTA, 0f, Paleta.BORDE, dp(1f),
+                radios = esquinas(dp(Radio.BURBUJA).toFloat(), abajoDerecha = dp(Espacio.XS + 1f).toFloat()),
+            )
+            setPadding(dp(Espacio.XS + 1f), dp(Espacio.XS + 1f), dp(Espacio.XS + 1f), dp(Espacio.S + 2f))
         }
 
         val miniatura = adjunto.miniatura
@@ -1136,7 +1415,7 @@ class MainActivity : Activity() {
                 clipToOutline = true
                 outlineProvider = object : ViewOutlineProvider() {
                     override fun getOutline(vista: View, contorno: Outline) {
-                        contorno.setRoundRect(0, 0, vista.width, vista.height, dp(11f).toFloat())
+                        contorno.setRoundRect(0, 0, vista.width, vista.height, dp(14f).toFloat())
                     }
                 }
             }
@@ -1146,30 +1425,39 @@ class MainActivity : Activity() {
             tarjeta.addView(imagen, LinearLayout.LayoutParams(ancho, alto))
         }
 
-        val icono = when (adjunto.tipo) {
-            "imagen" -> "🖼"
-            "video" -> "🎬"
-            "pdf" -> "📄"
-            else -> "📎"
+        // El clip dibujado, y no un emoji distinto por cada tipo de archivo:
+        // el tipo ya está escrito abajo, con todas las letras.
+        val fila = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(Espacio.S + 2f), dp(Espacio.S + 2f), dp(Espacio.S), dp(Espacio.XS) / 2)
         }
-        val etiqueta = TextView(this).estilo(13f, Color.WHITE, negrita = true).apply {
-            text = "$icono  ${adjunto.nombre}"
-            setPadding(dp(8f), dp(8f), dp(8f), 0)
-            maxLines = 2
-        }
-        val peso = TextView(this).estilo(11.5f, 0xCCFFFFFF.toInt()).apply {
-            text = "${adjunto.tipo} · ${AnalizadorAdjuntos.pesoLegible(adjunto.tamanioBytes)}"
-            setPadding(dp(8f), dp(1f), dp(8f), 0)
-        }
-        tarjeta.addView(etiqueta)
-        tarjeta.addView(peso)
+        fila.addView(
+            ImageView(this).apply { setImageDrawable(Icono(Iconos.documento(), Paleta.TEXTO_2)) },
+            LinearLayout.LayoutParams(dp(15f), dp(15f)).apply { rightMargin = dp(Espacio.S) },
+        )
+        fila.addView(
+            TextView(this).estilo(Tipo.SECUNDARIO, Paleta.TEXTO, negrita = true, interlineado = 1.2f).apply {
+                text = adjunto.nombre
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        tarjeta.addView(fila)
+        tarjeta.addView(
+            TextView(this).estilo(Tipo.MICRO, Paleta.TEXTO_3, interlineado = 1f).apply {
+                text = "${adjunto.tipo} · ${AnalizadorAdjuntos.pesoLegible(adjunto.tamanioBytes)}"
+                setPadding(dp(Espacio.XL + 3f), 0, dp(Espacio.S), 0)
+            }
+        )
 
         val parametros = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply {
             gravity = Gravity.END
-            topMargin = dp(6f)
-            bottomMargin = dp(6f)
+            topMargin = dp(Espacio.M)
+            bottomMargin = dp(Espacio.XS)
         }
         contenedorChat.addView(tarjeta, parametros)
         alFinal()
@@ -1180,13 +1468,17 @@ class MainActivity : Activity() {
         if (datos.isEmpty()) return
         val ficha = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = fondoRedondeado(Paleta.PANEL, dp(14f).toFloat(), Paleta.BORDE, dp(1f))
-            setPadding(dp(14f), dp(11f), dp(14f), dp(11f))
+            background = fondoRedondeado(Paleta.SUPERFICIE, dp(Radio.MEDIO).toFloat(), Paleta.BORDE, dp(1f))
+            setPadding(dp(Espacio.L - 2f), dp(Espacio.M), dp(Espacio.L - 2f), dp(Espacio.M))
         }
         for ((clave, valor) in datos) {
             val fila = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            val etiqueta = TextView(this).estilo(12.5f, Paleta.TENUE).apply { text = clave }
-            val contenido = TextView(this).estilo(12.5f, Paleta.TEXTO, monoespaciada = true).apply {
+            val etiqueta = TextView(this).estilo(Tipo.ETIQUETA, Paleta.TEXTO_3, interlineado = 1.2f).apply {
+                text = clave
+            }
+            val contenido = TextView(this).estilo(
+                Tipo.ETIQUETA, Paleta.TEXTO, monoespaciada = true, interlineado = 1.2f,
+            ).apply {
                 text = valor
                 gravity = Gravity.END
             }
@@ -1212,9 +1504,16 @@ class MainActivity : Activity() {
     companion object {
         private const val PEDIDO_ARCHIVO = 1001
         private const val PEDIDO_MODELO = 1002
+
+        /** Lo que se le ofrece a alguien que abre un chat en blanco. */
+        private val EJEMPLOS = listOf(
+            "¿Quién sos y cómo funcionás?",
+            "Explicame algo difícil en palabras simples",
+            "Ayudame a redactar un mensaje",
+            "¿Qué podés hacer sin internet?",
+        )
         private const val ARCHIVO_ERROR = "ultimo-error.txt"
         private const val ESPERA_ARRANQUE = 8000L
-        private const val RITMO_PENSAR = 230L
         private val PREGUNTA_POR_ADJUNTO =
             Regex("\\b(archivo|foto|imagen|pdf|video|adjunt\\w*|documento)\\b")
     }

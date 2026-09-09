@@ -50,6 +50,30 @@ jobs:
       - name: Renombrar el APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk rama-ai.apk
 
+      # Las instrucciones ARM son lo que más pesa en la velocidad del modelo, y
+      # es un ajuste silencioso: si la bandera dejara de aplicarse, el APK
+      # seguiría compilando y andando, sólo que varias veces más lento y sin
+      # que nadie se entere. Así que lo miramos en el binario mismo.
+      - name: Verificar que el .so trae las instrucciones rápidas
+        run: |
+          set -euo pipefail
+          objdump=$(find "$ANDROID_HOME/ndk" -name 'llvm-objdump' -type f | head -1)
+          if [ -z "$objdump" ]; then
+            echo "No se encontró llvm-objdump en el NDK" >&2
+            exit 1
+          fi
+          unzip -o -q rama-ai.apk 'lib/arm64-v8a/*.so' -d /tmp/so
+          libreria=/tmp/so/lib/arm64-v8a/librama_llama.so
+          "$objdump" -d "$libreria" > /tmp/rama.asm
+          for instruccion in sdot fmla; do
+            cuantas=$(grep -cw "$instruccion" /tmp/rama.asm || true)
+            echo "$instruccion: $cuantas"
+            if [ "$cuantas" -lt 10 ]; then
+              echo "El .so casi no usa $instruccion: la bandera de arquitectura no se aplicó" >&2
+              exit 1
+            fi
+          done
+
       - name: Guardar el APK como artefacto
         uses: actions/upload-artifact@v4
         with:

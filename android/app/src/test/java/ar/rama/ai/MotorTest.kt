@@ -11,6 +11,7 @@ import ar.rama.ai.motor.Enfasis
 import ar.rama.ai.motor.Formato
 import ar.rama.ai.motor.FiltroPensamiento
 import ar.rama.ai.motor.Modos
+import ar.rama.ai.motor.Nucleos
 import ar.rama.ai.motor.Generador
 import ar.rama.ai.motor.Mensaje
 import ar.rama.ai.motor.Respaldo
@@ -489,13 +490,46 @@ class MotorTest {
         val asistente = nuevoAsistente()
         val aCiegas = asistente.armarConversacion("quien ganó en 1957", emptyList(), null, emptyList(), emptyList())
         assertTrue("no le avisa que no tiene fuentes",
-            aCiegas.first().contenido.contains("no tenés ninguna fuente"))
+            aCiegas.last().contenido.contains("no tenés ninguna fuente"))
 
         val conDato = asistente.armarConversacion(
             "cuánto es 2+2", emptyList(), "2+2 = 4", emptyList(), emptyList(),
         )
         assertFalse("no debería avisar cuando sí tiene un dato",
-            conDato.first().contenido.contains("no tenés ninguna fuente"))
+            conDato.last().contenido.contains("no tenés ninguna fuente"))
+    }
+
+    @Test
+    fun elMensajeDeSistemaNoCambiaEntreTurnos() {
+        // De esto depende que el motor no tenga que releer todo el prompt en
+        // cada pregunta: si el bloque de sistema varía, la caché no sirve.
+        val asistente = nuevoAsistente()
+        val primero = asistente.armarConversacion(
+            "hola", emptyList(), null, emptyList(), emptyList(),
+        ).first().contenido
+        val conFuentes = asistente.armarConversacion(
+            "y ahora?",
+            listOf(Mensaje("user", "hola"), Mensaje("assistant", "buenas")),
+            "2+2 = 4",
+            listOf("un dato de la base"),
+            listOf(Resultado("Título", "Resumen", "https://ejemplo.org")),
+        ).first().contenido
+        assertEquals(primero, conFuentes)
+    }
+
+    @Test
+    fun elHistorialVaAntesDeLoQueCambia() {
+        // Mismo motivo: lo que se repite turno a turno tiene que ir primero y
+        // lo variable al final, o el prefijo en común se corta enseguida.
+        val asistente = nuevoAsistente()
+        val historial = listOf(Mensaje("user", "primera"), Mensaje("assistant", "respuesta"))
+        val conversacion = asistente.armarConversacion(
+            "segunda", historial, null, emptyList(),
+            listOf(Resultado("Título", "Resumen", "https://ejemplo.org")),
+        )
+        assertEquals(listOf("system", "user", "assistant", "user"), conversacion.map { it.rol })
+        assertEquals("primera", conversacion[1].contenido)
+        assertTrue(conversacion.last().contenido.contains("https://ejemplo.org"))
     }
 
     @Test
@@ -1065,6 +1099,72 @@ class MotorTest {
     fun lasSkillsTambienDejanTraza() {
         val pasos = nuevaRama().responder("cuanto es 2*3").pasos
         assertTrue(pasos.any { it.titulo == "Habilidades" && it.detalle.contains("calculadora") })
+    }
+
+    // ---- Núcleos: cuántos hilos darle al modelo ----
+
+    /** Arma un /sys de mentira con las frecuencias que le pasemos. */
+    private fun sysConFrecuencias(vararg khz: Long): File {
+        val raiz = File.createTempFile("cpus", "").let { it.delete(); it.mkdirs(); it }
+        khz.forEachIndexed { i, f ->
+            val cpu = File(raiz, "cpu$i/cpufreq").apply { mkdirs() }
+            File(cpu, "cpuinfo_max_freq").writeText("$f\n")
+        }
+        return raiz
+    }
+
+    @Test
+    fun leeLasFrecuenciasEnOrdenDeNucleo() {
+        // cpu10 tiene que ir después de cpu2, no entre cpu1 y cpu2.
+        val raiz = sysConFrecuencias(1_800_000, 1_800_000, 2_800_000)
+        assertEquals(listOf(1_800_000L, 1_800_000L, 2_800_000L), Nucleos.frecuencias(raiz))
+    }
+
+    @Test
+    fun sinLecturaDeSysDevuelveListaVacia() {
+        val raiz = File.createTempFile("vacio", "").let { it.delete(); it.mkdirs(); it }
+        assertEquals(emptyList<Long>(), Nucleos.frecuencias(raiz))
+    }
+
+    @Test
+    fun cuentaSoloLosNucleosRapidos() {
+        // Un big.LITTLE clásico: cuatro lentos y cuatro rápidos.
+        val f = listOf(1_800_000L, 1_800_000L, 1_800_000L, 1_800_000L,
+                       2_800_000L, 2_800_000L, 2_800_000L, 2_800_000L)
+        assertEquals(4, Nucleos.rapidos(f))
+        assertEquals(4, Nucleos.recomendados(f, total = 8))
+    }
+
+    @Test
+    fun elNucleoPrincipalNoQuedaSolo() {
+        // 1 + 3 + 4: el primero va apenas más alto que los otros tres grandes,
+        // y los cuatro tienen que trabajar juntos.
+        val f = listOf(1_800_000L, 1_800_000L, 1_800_000L, 1_800_000L,
+                       2_400_000L, 2_400_000L, 2_400_000L, 2_600_000L)
+        assertEquals(4, Nucleos.rapidos(f))
+    }
+
+    @Test
+    fun conNucleosTodosIgualesDejaAireParaLaInterfaz() {
+        val f = List(8) { 2_000_000L }
+        assertEquals(6, Nucleos.recomendados(f, total = 8))
+    }
+
+    @Test
+    fun sinFrecuenciasCaeEnLaCuentaPrudente() {
+        assertEquals(6, Nucleos.recomendados(emptyList(), total = 8))
+        assertEquals(2, Nucleos.recomendados(emptyList(), total = 4))
+        assertEquals(2, Nucleos.recomendados(emptyList(), total = 1))
+    }
+
+    @Test
+    fun nuncaMenosDeDosHilosNiMasDeSeis() {
+        // Un solo núcleo rápido igual arranca con dos hilos.
+        val uno = listOf(1_800_000L, 1_800_000L, 1_800_000L, 3_000_000L)
+        assertEquals(2, Nucleos.recomendados(uno, total = 4))
+        // Y uno con muchos grandes no se pasa de seis.
+        val muchos = List(4) { 1_800_000L } + List(8) { 3_000_000L }
+        assertEquals(6, Nucleos.recomendados(muchos, total = 12))
     }
 
     @Test

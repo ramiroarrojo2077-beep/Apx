@@ -24,14 +24,28 @@ object Llama {
     init {
         try {
             System.loadLibrary("rama_llama")
-            nativeIniciar()
-            disponible = true
+            val faltan = nativeFaltantes()
+            if (faltan.isNotEmpty()) {
+                motivoNoDisponible =
+                    "El procesador de este teléfono no tiene $faltan. Rama compila sus " +
+                    "modelos con esas instrucciones porque son las que los hacen rápidos, " +
+                    "y sin ellas no puede generar."
+            } else {
+                nativeIniciar()
+                disponible = true
+            }
         } catch (e: Throwable) {
             motivoNoDisponible = "${e.javaClass.simpleName}: ${e.message}"
         }
     }
 
     private external fun nativeIniciar()
+
+    /**
+     * Las instrucciones que le faltan a este procesador, separadas por coma, o
+     * vacío si están todas. Se consulta antes de cargar cualquier modelo.
+     */
+    private external fun nativeFaltantes(): String
 
     /** Devuelve 0 si el modelo no se pudo abrir. */
     external fun nativeAbrir(ruta: String, nCtx: Int, nHilos: Int): Long

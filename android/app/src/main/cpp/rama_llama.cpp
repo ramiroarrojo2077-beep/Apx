@@ -5,6 +5,7 @@
 // entregándolos a Kotlin a medida que salen.
 
 #include <jni.h>
+#include <sys/auxv.h>
 
 #include <algorithm>
 #include <cstring>
@@ -13,6 +14,17 @@
 #include <vector>
 
 #include "llama.h"
+
+// El .so se compila para armv8.2 con dotprod y fp16: eso es lo que hace que un
+// modelo cuantizado ande a velocidad usable. Un teléfono anterior a 2018 no
+// tiene esas instrucciones y se caería con SIGILL en el primer producto punto,
+// así que preguntamos antes de tocar nada.
+#ifndef HWCAP_ASIMDDP
+#define HWCAP_ASIMDDP (1 << 20)
+#endif
+#ifndef HWCAP_ASIMDHP
+#define HWCAP_ASIMDHP (1 << 10)
+#endif
 
 namespace {
 
@@ -24,6 +36,17 @@ struct Sesion {
     llama_sampler *      muestreador  = nullptr;
     std::mutex           candado;
     bool                 cancelar     = false;
+
+    /**
+     * Los tokens que en este momento están dentro de la caché de atención,
+     * en orden y uno por posición.
+     *
+     * Sirve para no volver a procesar lo que ya se procesó: entre dos turnos
+     * de la misma charla, el system prompt y todo el historial anterior son
+     * idénticos, y sólo cambia la cola. Comparando esta lista con el prompt
+     * nuevo sabemos exactamente desde dónde hay que seguir.
+     */
+    std::vector<llama_token> en_cache;
 };
 
 Sesion * sesion_de(jlong handle) {
@@ -140,6 +163,23 @@ JNIEXPORT void JNICALL
 Java_ar_rama_ai_motor_Llama_nativeIniciar(JNIEnv *, jobject) {
     llama_log_set(sin_logs, nullptr);
     llama_backend_init();
+}
+
+/**
+ * ¿El procesador de este teléfono entiende las instrucciones con las que se
+ * compiló la librería?
+ *
+ * Devuelve la lista de las que faltan, separadas por coma, o vacío si están
+ * todas. Preguntar es baratísimo y evita el peor final posible: la app
+ * cerrándose de golpe en mitad de una respuesta, sin explicación.
+ */
+JNIEXPORT jstring JNICALL
+Java_ar_rama_ai_motor_Llama_nativeFaltantes(JNIEnv * env, jobject) {
+    const unsigned long caps = getauxval(AT_HWCAP);
+    std::string faltan;
+    if (!(caps & HWCAP_ASIMDDP)) faltan += "dotprod";
+    if (!(caps & HWCAP_ASIMDHP)) { if (!faltan.empty()) faltan += ", "; faltan += "fp16"; }
+    return nueva_cadena(env, faltan);
 }
 
 JNIEXPORT jlong JNICALL
@@ -287,10 +327,6 @@ Java_ar_rama_ai_motor_Llama_nativeGenerar(JNIEnv * env, jobject, jlong handle, j
     jmethodID on_token = env->GetMethodID(clase, "onToken", "(Ljava/lang/String;)Z");
     if (on_token == nullptr) return -2;
 
-    // Cada respuesta arranca con el contexto limpio: es más simple de razonar
-    // que arrastrar la caché, y el historial ya viaja dentro del prompt.
-    llama_memory_clear(llama_get_memory(sesion->ctx), true);
-
     if (sesion->muestreador) llama_sampler_free(sesion->muestreador);
     sesion->muestreador = llama_sampler_chain_init(llama_sampler_chain_default_params());
     // El top-k va primero: penalizar sobre el vocabulario entero es lento.
@@ -312,13 +348,46 @@ Java_ar_rama_ai_motor_Llama_nativeGenerar(JNIEnv * env, jobject, jlong handle, j
         tokens.erase(tokens.begin(), tokens.begin() + (tokens.size() + 8 - contexto));
     }
 
+    // Reaprovechamos todo lo que ya está en la caché.
+    //
+    // El prompt de un turno cualquiera empieza igual que el del turno anterior:
+    // mismas instrucciones, mismo historial. Buscamos hasta dónde coinciden y
+    // tiramos sólo lo que sigue, en vez de vaciar todo y volver a leer miles de
+    // tokens que no cambiaron. En una charla larga esto es la diferencia entre
+    // esperar varios segundos antes de la primera palabra y que salga sola.
+    llama_memory_t memoria = llama_get_memory(sesion->ctx);
+
+    // El último token siempre se decodifica: de ahí salen los logits con los
+    // que se elige la primera palabra de la respuesta.
+    const size_t tope_comun = tokens.size() - 1;
+    size_t comun = 0;
+    while (comun < tope_comun && comun < sesion->en_cache.size() &&
+           sesion->en_cache[comun] == tokens[comun]) {
+        comun++;
+    }
+
+    if (comun == 0 || !llama_memory_seq_rm(memoria, 0, static_cast<llama_pos>(comun), -1)) {
+        llama_memory_clear(memoria, true);
+        sesion->en_cache.clear();
+        comun = 0;
+    } else {
+        sesion->en_cache.resize(comun);
+    }
+
     // Un prompt más largo que el lote máximo hace abortar a llama_decode, y
     // con el sistema, el contexto y la búsqueda se pasa de 512 sin esfuerzo.
     const size_t tope_lote = llama_n_batch(sesion->ctx);
-    for (size_t desde = 0; desde < tokens.size(); desde += tope_lote) {
+    for (size_t desde = comun; desde < tokens.size(); desde += tope_lote) {
         const size_t cuantos = std::min(tope_lote, tokens.size() - desde);
         llama_batch lote = llama_batch_get_one(tokens.data() + desde, static_cast<int32_t>(cuantos));
-        if (llama_decode(sesion->ctx, lote) != 0) return -4;
+        if (llama_decode(sesion->ctx, lote) != 0) {
+            // Quedó a medio llenar: no sabemos qué hay adentro, la vaciamos.
+            llama_memory_clear(memoria, true);
+            sesion->en_cache.clear();
+            return -4;
+        }
+        sesion->en_cache.insert(sesion->en_cache.end(), tokens.begin() + static_cast<long>(desde),
+                                tokens.begin() + static_cast<long>(desde + cuantos));
     }
 
     std::string pendiente;   // bytes UTF-8 que todavía no forman una letra
@@ -347,7 +416,14 @@ Java_ar_rama_ai_motor_Llama_nativeGenerar(JNIEnv * env, jobject, jlong handle, j
         usados++;
         llama_token siguiente = token;
         llama_batch lote_uno = llama_batch_get_one(&siguiente, 1);
-        if (llama_decode(sesion->ctx, lote_uno) != 0) break;
+        if (llama_decode(sesion->ctx, lote_uno) != 0) {
+            llama_memory_clear(memoria, true);
+            sesion->en_cache.clear();
+            break;
+        }
+        // El token generado también queda en la caché: el próximo turno lo va a
+        // encontrar en el historial y no va a tener que releerlo.
+        sesion->en_cache.push_back(siguiente);
     }
 
     return generados;

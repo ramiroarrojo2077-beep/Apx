@@ -98,12 +98,9 @@ class Generador private constructor(
             if (archivo.length() > 800L * 1024 * 1024) 2048 else CONTEXTO
 
         /**
-         * Dejamos núcleos libres: si ocupamos todos, la interfaz se traba y el
-         * teléfono termina bajando la frecuencia por calor.
+         * Sólo los núcleos rápidos del teléfono: sumar los lentos hace que los
+         * rápidos los esperen. La cuenta está en [Nucleos].
          */
-        fun hilosRecomendados(): Int {
-            val nucleos = Runtime.getRuntime().availableProcessors()
-            return (nucleos - 2).coerceIn(2, 6)
-        }
+        fun hilosRecomendados(): Int = Nucleos.recomendados()
     }
 }

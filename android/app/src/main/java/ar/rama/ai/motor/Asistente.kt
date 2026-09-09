@@ -229,18 +229,20 @@ class Asistente(
             }
         }
 
-        val sistema = StringBuilder(Modos.sistema(modo))
-        if (contexto.isEmpty()) {
-            // Sin fuentes, la única salida honesta es admitir la duda. Decírselo
-            // explícitamente reduce bastante las invenciones con seguridad.
-            sistema.append("\n\n").append(SIN_FUENTES)
-        }
-        val mensajes = mutableListOf(Mensaje("system", sistema.toString()))
+        // El mensaje de sistema sale idéntico en todos los turnos de la charla,
+        // a propósito: el motor guarda en caché lo que ya procesó y sólo lee lo
+        // que cambió. Si acá metiéramos algo que varía —las fuentes de este
+        // turno, la hora—, cada pregunta obligaría a releer el bloque entero
+        // antes de escribir la primera letra. Todo lo variable va abajo.
+        val mensajes = mutableListOf(Mensaje("system", Modos.sistema(modo)))
         // Sólo los últimos turnos: el contexto del modelo es chico y caro.
         historial.takeLast(TURNOS_DE_HISTORIAL).forEach { mensajes.add(it) }
 
-        val cuerpo = if (contexto.isEmpty()) pregunta
-        else "$contexto---\nPregunta: $pregunta"
+        val cuerpo = if (contexto.isEmpty()) {
+            // Sin fuentes, la única salida honesta es admitir la duda. Decírselo
+            // explícitamente reduce bastante las invenciones con seguridad.
+            "$SIN_FUENTES\n\n$pregunta"
+        } else "$contexto---\nPregunta: $pregunta"
         // Qwen3 y otros modelos híbridos apagan su modo de razonamiento con
         // esta marca. Ahorra tokens; el filtro es la red por si la ignoran.
         mensajes.add(Mensaje("user", "$cuerpo $SIN_RAZONAR"))

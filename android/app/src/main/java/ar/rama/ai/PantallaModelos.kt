@@ -34,6 +34,18 @@ class PantallaModelos(
 ) {
 
     private val descargas = DescargaEnSegundoPlano(actividad)
+
+    /** Los gigas de RAM del teléfono, para saber qué modelo entra de verdad. */
+    private val ramDelTelefono: Int by lazy {
+        try {
+            val gestor = actividad.getSystemService(Activity.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val info = android.app.ActivityManager.MemoryInfo()
+            gestor.getMemoryInfo(info)
+            Math.round(info.totalMem / 1024f / 1024f / 1024f)
+        } catch (e: Exception) {
+            0
+        }
+    }
     private val trabajador = Executors.newSingleThreadExecutor { tarea ->
         Thread(tarea, "rama-descarga").apply { isDaemon = true }
     }
@@ -99,10 +111,26 @@ class PantallaModelos(
             TextView(actividad).estilo(13f, Paleta.TENUE).apply {
                 text = "Rama genera sus respuestas con un modelo que corre acá adentro, sin " +
                     "pasar por la IA de nadie.\n\nLa descarga la hace el gestor del sistema: " +
-                    "podés salir de la app o apagar la pantalla y sigue bajando, con el " +
-                    "progreso en la barra de notificaciones.\n\nEstán ordenados del más " +
-                    "liviano al más capaz. Si dudás, empezá por uno de 1 GB."
-                setPadding(0, 0, 0, actividad.dp(14f))
+                    "podés salir de la app o apagar la pantalla y sigue bajando.\n\n" +
+                    "Están ordenados del más liviano al más capaz."
+                setPadding(0, 0, 0, actividad.dp(10f))
+            }
+        )
+        columna.addView(
+            TextView(actividad).estilo(12.5f, Paleta.ACENTO, monoespaciada = true).apply {
+                text = if (ramDelTelefono > 0) {
+                    "Tu teléfono tiene ~$ramDelTelefono GB de RAM. Los que piden más " +
+                        "aparecen marcados: se pueden bajar igual, pero probablemente no carguen."
+                } else {
+                    "No pude leer la memoria de tu teléfono."
+                }
+                setPadding(actividad.dp(12f), actividad.dp(10f), actividad.dp(12f), actividad.dp(10f))
+                background = fondoRedondeado(
+                    Paleta.PANEL_ALTO, actividad.dp(12f).toFloat(), Paleta.BORDE, actividad.dp(1f),
+                )
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { bottomMargin = actividad.dp(14f) }
             }
         )
         columna.addView(tarjetas)
@@ -184,7 +212,10 @@ class PantallaModelos(
         val estado = descargas.estado(modelo)
         val enUso = modeloActivo()?.absolutePath == archivo.absolutePath
 
+        val entra = ramDelTelefono == 0 || Catalogo.ramNecesaria(modelo) <= ramDelTelefono
+
         val tarjeta = tarjetaVacia()
+        if (!entra) tarjeta.alpha = 0.55f
         tarjeta.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply { bottomMargin = actividad.dp(12f) }
@@ -203,6 +234,14 @@ class PantallaModelos(
                     text = "EN USO"
                     padding(actividad.dp(9f), actividad.dp(4f))
                     background = fondoRedondeado(Paleta.ACENTO, actividad.dp(10f).toFloat())
+                }
+            )
+        } else if (!entra) {
+            encabezado.addView(
+                TextView(actividad).estilo(11f, 0xFF1A1206.toInt(), negrita = true).apply {
+                    text = "NO ENTRA"
+                    padding(actividad.dp(8f), actividad.dp(4f))
+                    background = fondoRedondeado(0xFFFFB74D.toInt(), actividad.dp(10f).toFloat())
                 }
             )
         }

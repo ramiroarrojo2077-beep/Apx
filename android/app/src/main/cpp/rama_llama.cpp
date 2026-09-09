@@ -153,12 +153,30 @@ Java_ar_rama_ai_motor_Llama_nativeAbrir(JNIEnv * env, jobject, jstring ruta, jin
     if (modelo == nullptr) return 0;
 
     llama_context_params parametros_ctx = llama_context_default_params();
-    parametros_ctx.n_ctx         = static_cast<uint32_t>(n_ctx);
-    parametros_ctx.n_batch       = 512;
-    parametros_ctx.n_threads     = n_hilos;
+    parametros_ctx.n_ctx           = static_cast<uint32_t>(n_ctx);
+    // Lotes chicos: el buffer de cómputo crece con ellos, y en un teléfono
+    // cada megabyte de más acerca el cierre por falta de memoria.
+    parametros_ctx.n_batch         = 256;
+    parametros_ctx.n_ubatch        = 256;
+    parametros_ctx.n_threads       = n_hilos;
     parametros_ctx.n_threads_batch = n_hilos;
 
+    // La caché de atención en 8 bits ocupa la mitad que en 16, y en un modelo
+    // grande esa mitad son cientos de megas. La pérdida de calidad es
+    // despreciable comparada con la de los propios pesos, ya cuantizados.
+    parametros_ctx.type_k          = GGML_TYPE_Q8_0;
+    parametros_ctx.type_v          = GGML_TYPE_Q8_0;
+    parametros_ctx.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
+
     llama_context * ctx = llama_init_from_model(modelo, parametros_ctx);
+    if (ctx == nullptr) {
+        // No todos los modelos aceptan la caché cuantizada; si no, se usa la
+        // normal antes que dejar al usuario sin poder cargar nada.
+        parametros_ctx.type_k          = GGML_TYPE_F16;
+        parametros_ctx.type_v          = GGML_TYPE_F16;
+        parametros_ctx.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
+        ctx = llama_init_from_model(modelo, parametros_ctx);
+    }
     if (ctx == nullptr) {
         llama_model_free(modelo);
         return 0;

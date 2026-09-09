@@ -71,3 +71,43 @@ fun TextView.estilo(
 }
 
 fun View.padding(horizontal: Int, vertical: Int) = setPadding(horizontal, vertical, horizontal, vertical)
+
+/**
+ * Convierte el markdown liviano de los modelos en texto con formato.
+ *
+ * Sin esto el chat muestra los asteriscos y las almohadillas tal cual, que es
+ * exactamente lo que uno no quiere leer.
+ */
+fun conFormato(markdown: String): CharSequence {
+    val analizado = ar.rama.ai.motor.Formato.analizar(markdown)
+    if (analizado.marcas.isEmpty()) return analizado.texto
+
+    val texto = android.text.SpannableStringBuilder(analizado.texto)
+    for (marca in analizado.marcas) {
+        if (marca.desde >= marca.hasta || marca.hasta > texto.length) continue
+        val estilo: Any = when (marca.enfasis) {
+            ar.rama.ai.motor.Enfasis.NEGRITA ->
+                android.text.style.StyleSpan(android.graphics.Typeface.BOLD)
+            ar.rama.ai.motor.Enfasis.CURSIVA ->
+                android.text.style.StyleSpan(android.graphics.Typeface.ITALIC)
+            ar.rama.ai.motor.Enfasis.CODIGO ->
+                android.text.style.TypefaceSpan("monospace")
+            ar.rama.ai.motor.Enfasis.TITULO ->
+                android.text.style.StyleSpan(android.graphics.Typeface.BOLD)
+        }
+        texto.setSpan(estilo, marca.desde, marca.hasta, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        if (marca.enfasis == ar.rama.ai.motor.Enfasis.CODIGO) {
+            texto.setSpan(
+                android.text.style.ForegroundColorSpan(Paleta.ACENTO),
+                marca.desde, marca.hasta, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+        if (marca.enfasis == ar.rama.ai.motor.Enfasis.TITULO) {
+            texto.setSpan(
+                android.text.style.RelativeSizeSpan(1.12f),
+                marca.desde, marca.hasta, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+    }
+    return texto
+}

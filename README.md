@@ -43,11 +43,18 @@ derecha), una sola vez.
 | Llama 3.2 1B | Llama | 810 MB | 4 GB | ●●○○ | ●●●● |
 | Qwen3 1.7B | Qwen | 1,1 GB | 6 GB | ●●○○ | ●●●○ |
 | Llama 3.2 3B | Llama | 2,0 GB | 8 GB | ●●●○ | ●●○○ |
+| Phi-4 mini | Phi | 2,4 GB | 8 GB | ●●●○ | ●●○○ |
 | Qwen3 4B | Qwen | 2,5 GB | 8 GB | ●●●○ | ●●○○ |
 | Gemma 3 4B | Gemma | 2,5 GB | 8 GB | ●●●○ | ●●○○ |
+| Qwen3 4B alta fidelidad | Qwen | 4,3 GB | 10 GB | ●●●● | ●●○○ |
+| Mistral 7B | Mistral | 4,4 GB | 12 GB | ●●●● | ●○○○ |
 | Llama 3.1 8B | Llama | 4,9 GB | 12 GB | ●●●● | ●○○○ |
 | Qwen3 8B | Qwen | 5,0 GB | 12 GB | ●●●● | ●○○○ |
 | Gemma 3 12B | Gemma | 7,3 GB | 16 GB | ●●●● | ●○○○ |
+| Qwen3 14B | Qwen | 9,0 GB | 16 GB | ●●●● | ●○○○ |
+
+El panel lee la memoria de tu teléfono y marca los que no entran. Podés
+bajarlos igual, pero probablemente no carguen.
 
 La versión **alta fidelidad** del modelo chico es el mismo modelo comprimido con
 menos pérdida (Q8 en lugar de Q4). En modelos tan chicos la compresión duele
@@ -126,9 +133,30 @@ No sale del teléfono, no se sincroniza con nada, y desinstalar la app se lo
 lleva todo. Borrar un chat o borrarlos todos pide dos toques, para que no
 pase por accidente.
 
+Las respuestas se muestran **con formato**: los modelos escriben en markdown
+y, sin interpretarlo, el chat mostraba los asteriscos y las almohadillas
+crudas. Negritas, cursivas, títulos, viñetas y código se ven como tales, y un
+asterisco suelto en «2 * 3» sigue siendo un asterisco.
+
 Detalles de la interfaz: mantené apretado cualquier mensaje para copiarlo,
 las sugerencias desaparecen cuando la conversación arranca, y mientras el
 modelo piensa laten tres puntitos en vez de quedarse en blanco.
+
+## Consumo de memoria
+
+Un modelo grande es lo más pesado que va a correr tu teléfono, así que hay
+tres medidas concretas para que entre:
+
+- **La caché de atención va en 8 bits** en lugar de 16. Ocupa la mitad, y en
+  un modelo grande esa mitad son cientos de megas. La pérdida es despreciable
+  frente a la de los propios pesos, ya cuantizados. Si un modelo no la acepta,
+  se cae solo a la caché normal en vez de fallar.
+- **Lotes de 256** en vez de 512: el buffer de cómputo crece con ellos.
+- **Los pesos se leen por mapeo de memoria**, así que el sistema puede
+  descartar las páginas que no está usando en vez de sostener todo el archivo.
+- **Cuando Android avisa que se queda sin memoria, Rama suelta el modelo** y
+  lo recarga sola en la siguiente pregunta. Perder unos segundos es mejor que
+  perder la conversación entera porque el sistema cerró la app.
 
 ## Cuándo creerle
 

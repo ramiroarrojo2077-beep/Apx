@@ -72,6 +72,7 @@ class MainActivity : Activity() {
     private var modoPensar = true
     private var generando = false
     private var animacionEscritura: Runnable? = null
+    private var modeloEnPausa = false
     private var ultimoAdjunto: Adjunto? = null
 
     // Hilo demonio: si no lo fuera, seguiría vivo después de cerrar la
@@ -156,6 +157,56 @@ class MainActivity : Activity() {
     override fun onPause() {
         super.onPause()
         guardarChat()
+    }
+
+    /**
+     * Suelta el modelo cuando el sistema se queda sin memoria.
+     *
+     * Un modelo grande son varios gigas ocupados. Si Android tiene que elegir
+     * entre matar la app o que le devolvamos memoria, conviene devolverla: se
+     * recarga sola en la siguiente pregunta. Perder unos segundos es mejor que
+     * perder la conversación.
+     */
+    override fun onTrimMemory(nivel: Int) {
+        super.onTrimMemory(nivel)
+        val apreta = nivel == TRIM_MEMORY_COMPLETE ||
+            nivel == TRIM_MEMORY_MODERATE ||
+            nivel == TRIM_MEMORY_RUNNING_CRITICAL
+        if (apreta && !generando && generador != null) {
+            generador?.cerrar()
+            generador = null
+            asistente?.generador = null
+            modeloEnPausa = true
+            principal.post { chipModelo.text = "modelo en pausa" }
+        }
+    }
+
+    /**
+     * Vuelve a cargar el modelo si lo soltamos por falta de memoria.
+     * Devuelve false si hay que esperar: la pregunta se reenvía sola después.
+     */
+    private fun asegurarModelo(pregunta: String): Boolean {
+        if (generador != null || !modeloEnPausa) return true
+        val guardado = preferencias().getString("modelo", null) ?: return true
+        val archivo = File(guardado)
+        if (!archivo.exists()) {
+            modeloEnPausa = false
+            return true
+        }
+
+        avisar("Recargando el modelo, que había soltado por falta de memoria…")
+        enSegundoPlano("recargando el modelo") {
+            val abierto = Generador.abrir(archivo)
+            principal.post {
+                generador = abierto
+                asistente?.generador = abierto
+                modeloEnPausa = false
+                chipModelo.text = archivo.nameWithoutExtension
+                actualizarAvisoModelo()
+                if (abierto != null) enviar(pregunta) else burbujaRama("No pude recargar el modelo.")
+            }
+        }
+        return false
     }
 
     override fun onDestroy() {
@@ -506,6 +557,7 @@ class MainActivity : Activity() {
             return
         }
         entrada.setText("")
+        if (!asegurarModelo(limpio)) return
         burbujaUsuario(limpio)
 
         val adjunto = ultimoAdjunto
@@ -545,7 +597,7 @@ class MainActivity : Activity() {
                 generando = false
                 pintarBotonEnviar()
                 val texto = respuesta.texto
-                burbuja.text = texto
+                burbuja.text = conFormato(texto)
                 historial.add(Mensaje("assistant", texto))
                 bloque?.cerrar(respuesta.pasos.size)
                 selloRespaldo(respuesta.respaldo)
@@ -704,6 +756,7 @@ class MainActivity : Activity() {
                     )
                 } else {
                     preferencias().edit().putString("modelo", archivo.absolutePath).apply()
+                    modeloEnPausa = false
                     chipModelo.text = archivo.nameWithoutExtension
                     burbujaRama("Modelo cargado: ${abierto.info}\n\nYa puedo escribir respuestas propias.")
                 }
@@ -889,7 +942,7 @@ class MainActivity : Activity() {
 
     private fun burbujaRama(texto: String): TextView {
         val burbuja = TextView(this).estilo(15f, Paleta.TEXTO).apply {
-            text = texto
+            text = conFormato(texto)
             padding(dp(14f), dp(11f))
             setOnLongClickListener { copiar(this.text.toString()); true }
             background = fondoRedondeado(

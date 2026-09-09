@@ -220,11 +220,77 @@ object Catalogo {
         ),
     )
 
+    val PHI_MINI = ModeloDisponible(
+        id = "phi4-mini",
+        nombre = "Phi-4 mini",
+        familia = "Phi",
+        bytesAproximados = 2400L * 1024 * 1024,
+        ramRecomendada = "8 GB",
+        precision = 3,
+        velocidad = 2,
+        descripcion = "De Microsoft, entrenado con datos muy filtrados: rinde por encima " +
+            "de su tamaño en razonamiento y matemática.",
+        origenes = listOf(
+            Origen("bartowski/microsoft_Phi-4-mini-instruct-GGUF", "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"),
+            Origen("unsloth/Phi-4-mini-instruct-GGUF", "Phi-4-mini-instruct-Q4_K_M.gguf"),
+            Origen("microsoft/Phi-4-mini-instruct-gguf", "phi-4-mini-instruct-q4.gguf"),
+        ),
+    )
+
+    val QWEN_4B_PRECISO = ModeloDisponible(
+        id = "qwen3-4b-q8",
+        nombre = "Qwen3 4B · alta fidelidad",
+        familia = "Qwen",
+        bytesAproximados = 4300L * 1024 * 1024,
+        ramRecomendada = "10 GB",
+        precision = 4,
+        velocidad = 2,
+        descripcion = "Un 4B casi sin pérdida por compresión (Q8). Suele rendir mejor que " +
+            "un 8B muy comprimido, y ocupa menos: si tenés 10 GB, es la mejor relación " +
+            "de toda la lista.",
+        origenes = qwen("4B", "Qwen3-4B-Q8_0.gguf"),
+    )
+
+    val MISTRAL_7B = ModeloDisponible(
+        id = "mistral-7b",
+        nombre = "Mistral 7B",
+        familia = "Mistral",
+        bytesAproximados = 4400L * 1024 * 1024,
+        ramRecomendada = "12 GB",
+        precision = 4,
+        velocidad = 1,
+        descripcion = "El clásico europeo: muy sólido en español y con buen criterio " +
+            "para seguir instrucciones largas.",
+        origenes = listOf(
+            Origen("bartowski/Mistral-7B-Instruct-v0.3-GGUF", "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf"),
+            Origen("unsloth/mistral-7b-instruct-v0.3-GGUF", "mistral-7b-instruct-v0.3.Q4_K_M.gguf"),
+            Origen("MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF", "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"),
+        ),
+    )
+
+    val QWEN_14B = ModeloDisponible(
+        id = "qwen3-14b",
+        nombre = "Qwen3 14B",
+        familia = "Qwen",
+        bytesAproximados = 9000L * 1024 * 1024,
+        ramRecomendada = "16 GB",
+        precision = 4,
+        velocidad = 1,
+        descripcion = "El techo absoluto: es el que más se acerca a una IA de escritorio. " +
+            "Sólo en teléfonos de 16 GB, y con paciencia: cada respuesta puede tardar " +
+            "más de un minuto.",
+        origenes = qwen("14B", "Qwen3-14B-Q4_K_M.gguf"),
+    )
+
     /** Del más liviano al más capaz: el orden en que conviene decidir. */
     val MODELOS: List<ModeloDisponible> = listOf(
-        QWEN_06_R, QWEN_06_PRECISO, GEMMA_1B, LLAMA_1B, QWEN_17, LLAMA_3B, QWEN_4B, GEMMA_4B,
-        LLAMA_8B, QWEN_8B, GEMMA_12B,
+        QWEN_06_R, QWEN_06_PRECISO, GEMMA_1B, LLAMA_1B, QWEN_17, LLAMA_3B, PHI_MINI,
+        QWEN_4B, GEMMA_4B, QWEN_4B_PRECISO, MISTRAL_7B, LLAMA_8B, QWEN_8B, GEMMA_12B, QWEN_14B,
     )
+
+    /** Los gigabytes de RAM que pide, como número. */
+    fun ramNecesaria(modelo: ModeloDisponible): Int =
+        modelo.ramRecomendada.filter { it.isDigit() }.toIntOrNull() ?: 4
 
     /** Compatibilidad con nombres viejos usados en el resto del código. */
     val CHICO = QWEN_06_R

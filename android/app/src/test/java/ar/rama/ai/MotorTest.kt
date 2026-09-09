@@ -7,6 +7,8 @@ import ar.rama.ai.motor.Catalogo
 import ar.rama.ai.motor.Conversaciones
 import ar.rama.ai.motor.Descargador
 import ar.rama.ai.motor.Enciclopedia
+import ar.rama.ai.motor.Enfasis
+import ar.rama.ai.motor.Formato
 import ar.rama.ai.motor.FiltroPensamiento
 import ar.rama.ai.motor.Modos
 import ar.rama.ai.motor.Generador
@@ -511,13 +513,65 @@ class MotorTest {
         assertTrue(DescargaEnSegundoPlano.explicar(999999).isNotBlank())
     }
 
+    // ------------------------------------------------ formato del texto
+
+    @Test
+    fun interpretaLaNegritaYLaCursiva() {
+        val r = Formato.analizar("Hola **mundo** y *chau*")
+        assertEquals("Hola mundo y chau", r.texto)
+        assertEquals(2, r.marcas.size)
+        assertEquals(Enfasis.NEGRITA, r.marcas[0].enfasis)
+        assertEquals("mundo", r.texto.substring(r.marcas[0].desde, r.marcas[0].hasta))
+        assertEquals("chau", r.texto.substring(r.marcas[1].desde, r.marcas[1].hasta))
+    }
+
+    @Test
+    fun losTitulosYLasVinetasSeVenComoTales() {
+        val titulo = Formato.analizar("### Resumen\ntexto")
+        assertEquals("Resumen\ntexto", titulo.texto)
+        assertTrue(titulo.marcas.any { it.enfasis == Enfasis.TITULO })
+
+        assertEquals("•  uno\n•  dos", Formato.analizar("- uno\n- dos").texto)
+    }
+
+    @Test
+    fun elCodigoQuedaMarcado() {
+        val r = Formato.analizar("usá `git commit` acá")
+        assertEquals("usá git commit acá", r.texto)
+        assertEquals(Enfasis.CODIGO, r.marcas.single().enfasis)
+    }
+
+    @Test
+    fun unAsteriscoSueltoNoRompeNada() {
+        val r = Formato.analizar("2 * 3 = 6")
+        assertEquals("2 * 3 = 6", r.texto)
+        assertTrue(r.marcas.isEmpty())
+        assertEquals("esto **quedó abierto", Formato.analizar("esto **quedó abierto").texto)
+    }
+
+    @Test
+    fun elTextoSinFormatoQuedaIgual() {
+        val r = Formato.analizar("texto normal, sin nada raro")
+        assertEquals("texto normal, sin nada raro", r.texto)
+        assertTrue(r.marcas.isEmpty())
+    }
+
     @Test
     fun hayModelosDeAltaGama() {
         val potentes = Catalogo.MODELOS.filter { it.precision == 4 }
         assertTrue("faltan modelos de máxima precisión", potentes.size >= 3)
         assertTrue("el techo debería superar los 4 GB",
             Catalogo.MODELOS.maxOf { it.bytesAproximados } > 4L * 1024 * 1024 * 1024)
-        assertTrue(Catalogo.MODELOS.size >= 11)
+        assertTrue("faltan modelos: ${Catalogo.MODELOS.size}", Catalogo.MODELOS.size >= 15)
+        assertTrue("falta más de una familia grande",
+            Catalogo.MODELOS.filter { it.precision == 4 }.map { it.familia }.toSet().size >= 3)
+    }
+
+    @Test
+    fun laRamNecesariaSeLeeDelTexto() {
+        assertEquals(3, Catalogo.ramNecesaria(Catalogo.CHICO))
+        assertEquals(16, Catalogo.ramNecesaria(Catalogo.QWEN_14B))
+        assertTrue(Catalogo.MODELOS.all { Catalogo.ramNecesaria(it) in 2..32 })
     }
 
     @Test

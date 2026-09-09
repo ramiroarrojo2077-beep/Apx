@@ -101,11 +101,14 @@ class MainActivity : Activity() {
         ).also { raiz.addView(it.vista) }
         modelos = PantallaModelos(
             actividad = this,
-            carpeta = File(filesDir, "modelos"),
             modeloActivo = { generador?.archivo },
             alUsar = { archivo -> cargarModelo(archivo) },
             alBorrar = { descargarModelo() },
             alImportar = { pedirModelo() },
+            alCopiar = { enlace ->
+                copiar(enlace)
+                avisar("Enlace copiado. Pegalo en el navegador, bajá el .gguf y volvé a importarlo.")
+            },
         ).also { raiz.addView(it.vista) }
         setContentView(raiz)
 

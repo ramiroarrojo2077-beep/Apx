@@ -497,6 +497,21 @@ class MotorTest {
     }
 
     @Test
+    fun elEnlaceDeDescargaSeArmaBien() {
+        val url = Descargador.urlDeArchivo("Qwen/Qwen3-0.6B-GGUF", "Qwen3-0.6B-Q4_K_M.gguf")
+        assertTrue(url.startsWith("https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/"))
+        assertTrue(url.contains("Qwen3-0.6B-Q4_K_M.gguf"))
+    }
+
+    @Test
+    fun losErroresDeDescargaSeExplicanEnCastellano() {
+        val sinEspacio = DescargaEnSegundoPlano.explicar(android.app.DownloadManager.ERROR_INSUFFICIENT_SPACE)
+        assertTrue(sinEspacio.contains("espacio"))
+        assertTrue(DescargaEnSegundoPlano.explicar(404).contains("404"))
+        assertTrue(DescargaEnSegundoPlano.explicar(999999).isNotBlank())
+    }
+
+    @Test
     fun hayModelosDeAltaGama() {
         val potentes = Catalogo.MODELOS.filter { it.precision == 4 }
         assertTrue("faltan modelos de máxima precisión", potentes.size >= 3)
@@ -882,13 +897,20 @@ class MotorTest {
 
     @Test
     fun losIdSonDistintos() {
-        val ids = (1..50).map { Conversaciones.nuevoId() }.toSet()
-        assertTrue("hubo colisiones de id: ${50 - ids.size}", ids.size >= 48)
+        // Creados en el mismo milisegundo: no puede haber ni una colisión.
+        val ids = (1..500).map { Conversaciones.nuevoId() }.toSet()
+        assertEquals("hubo colisiones de id", 500, ids.size)
     }
 
     @Test
     fun lasFechasSeDicenComoLasDiriaAlguien() {
-        val ahora = System.currentTimeMillis()
+        // Referencia fija a media tarde: si se tomara la hora real, el test
+        // cambiaría de resultado al cruzar la medianoche.
+        val referencia = java.util.Calendar.getInstance().apply {
+            set(2026, 5, 15, 15, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val ahora = referencia.timeInMillis
         val minuto = 60_000L
         assertEquals("recién", PantallaChats.cuandoFue(ahora, ahora))
         assertEquals("hace 5 min", PantallaChats.cuandoFue(ahora - 5 * minuto, ahora))

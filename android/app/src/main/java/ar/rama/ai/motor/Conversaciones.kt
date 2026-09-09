@@ -122,7 +122,19 @@ class Conversaciones(private val carpeta: File) {
         /** Puede sobreescribirse en los tests para tener fechas previsibles. */
         var ahora: () -> Long = { System.currentTimeMillis() }
 
-        fun nuevoId(): String = "chat-${System.currentTimeMillis()}-${(0..999).random()}"
+        private val contador = java.util.concurrent.atomic.AtomicLong(0)
+
+        /**
+         * Un identificador que no se repite.
+         *
+         * Sólo con la hora y un número al azar chico, dos chats creados en el
+         * mismo milisegundo podían caer en el mismo archivo y pisarse. El
+         * contador lo hace imposible dentro de la sesión, y el azar cubre el
+         * caso de dos sesiones arrancando a la vez.
+         */
+        fun nuevoId(): String =
+            "chat-${System.currentTimeMillis()}-${contador.incrementAndGet()}-" +
+                "%06x".format((0..0xFFFFFF).random())
 
         /**
          * El título sale de lo primero que preguntó el usuario: es lo que uno

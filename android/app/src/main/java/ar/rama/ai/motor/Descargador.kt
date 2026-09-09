@@ -105,35 +105,17 @@ class Descargador(private val destino: File) {
     }
 
     /** Lo que se intentó y por qué falló, para poder contarlo en pantalla. */
-    var intentos: MutableList<String> = mutableListOf()
+    var intentos: List<String> = emptyList()
         private set
 
-    /**
-     * Busca el archivo en cada origen conocido y, si ninguno responde, le
-     * pregunta a cada repositorio qué archivos tiene.
-     *
-     * Con un solo origen fijo, cualquier renombrado deja la app sin poder
-     * descargar. Acá hay que quedarse sin todos los caminos para fallar.
-     */
     private fun resolverUrl(modelo: ModeloDisponible): String? {
-        intentos = mutableListOf()
-
-        for (origen in modelo.origenes) {
-            val directa = urlDeArchivo(origen.repositorio, origen.archivo)
-            if (existe(directa)) return directa
-            intentos.add("${origen.repositorio}/${origen.archivo}: no está")
-        }
-
-        for (origen in modelo.origenes) {
-            val encontrado = buscarEnRepositorio(origen.repositorio)
-            if (encontrado != null) return encontrado
-            intentos.add("${origen.repositorio}: sin .gguf utilizable")
-        }
-        return null
+        val (url, pasos) = resolver(modelo)
+        intentos = pasos
+        return url
     }
 
     /** Le pregunta al repositorio qué archivos tiene y elige el más apropiado. */
-    private fun buscarEnRepositorio(repositorio: String): String? {
+    internal fun buscarEnRepositorio(repositorio: String): String? {
         val json = try {
             val conexion = URL("https://huggingface.co/api/models/$repositorio")
                 .openConnection() as HttpURLConnection
@@ -167,10 +149,7 @@ class Descargador(private val destino: File) {
         return urlDeArchivo(repositorio, elegido)
     }
 
-    private fun urlDeArchivo(repositorio: String, archivo: String) =
-        "https://huggingface.co/$repositorio/resolve/main/$archivo?download=true"
-
-    private fun existe(url: String): Boolean = try {
+    internal fun existe(url: String): Boolean = try {
         val conexion = abrir(url, desdeByte = 0, soloCabecera = true)
         conexion.responseCode in 200..299
     } catch (e: Exception) {
@@ -189,6 +168,34 @@ class Descargador(private val destino: File) {
     }
 
     companion object {
+        fun urlDeArchivo(repositorio: String, archivo: String) =
+            "https://huggingface.co/$repositorio/resolve/main/$archivo?download=true"
+
+        /**
+         * Busca el archivo en cada origen conocido y, si ninguno responde, le
+         * pregunta a cada repositorio qué archivos tiene.
+         *
+         * Con un solo origen fijo, cualquier renombrado deja la app sin poder
+         * descargar. Acá hay que quedarse sin todos los caminos para fallar.
+         * Devuelve la URL y el registro de lo intentado.
+         */
+        fun resolver(modelo: ModeloDisponible): Pair<String?, List<String>> {
+            val intentos = mutableListOf<String>()
+            val sonda = Descargador(File("/dev/null"))
+
+            for (origen in modelo.origenes) {
+                val directa = urlDeArchivo(origen.repositorio, origen.archivo)
+                if (sonda.existe(directa)) return directa to intentos
+                intentos.add("${origen.repositorio}/${origen.archivo}: no está")
+            }
+            for (origen in modelo.origenes) {
+                val encontrado = sonda.buscarEnRepositorio(origen.repositorio)
+                if (encontrado != null) return encontrado to intentos
+                intentos.add("${origen.repositorio}: sin .gguf utilizable")
+            }
+            return null to intentos
+        }
+
         /** Los GGUF empiezan con estas cuatro letras. Barato de verificar. */
         fun esGguf(archivo: File): Boolean = try {
             archivo.inputStream().use { flujo ->

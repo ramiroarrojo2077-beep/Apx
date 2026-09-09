@@ -54,6 +54,14 @@ menos pérdida (Q8 en lugar de Q4). En modelos tan chicos la compresión duele
 mucho más que en los grandes, así que ese medio giga extra compra bastante
 precisión sin costar velocidad.
 
+**La descarga corre en segundo plano**, a cargo del gestor del sistema: podés
+salir de la app o apagar la pantalla y sigue bajando, con el progreso en la
+barra de notificaciones. Reanuda si se corta la conexión y sobrevive a que
+Android cierre la app — un giga por datos móviles no se baja de otra forma.
+
+Si aun así falla, cada modelo tiene **copiar enlace**: lo pegás en el navegador,
+lo bajás desde ahí y después lo elegís con «elegir un .gguf del teléfono».
+
 También podés **importar cualquier .gguf** que ya tengas: la app lo copia y lo usa.
 
 La inferencia es [llama.cpp](https://github.com/ggml-org/llama.cpp) (fijado en la

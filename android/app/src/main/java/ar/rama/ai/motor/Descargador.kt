@@ -114,8 +114,16 @@ class Descargador(private val destino: File) {
         return url
     }
 
-    /** Le pregunta al repositorio qué archivos tiene y elige el más apropiado. */
-    internal fun buscarEnRepositorio(repositorio: String): String? {
+    /**
+     * Le pregunta al repositorio qué archivos tiene y elige uno.
+     *
+     * Con [cuantizacion] sólo acepta ese nivel de compresión; sin ella agarra
+     * lo primero razonable. La diferencia importa: una ficha que promete Q8 y
+     * termina bajando Q4 le da al usuario un modelo peor que el que eligió, y
+     * una que promete Q3 y baja Q4 le hace bajar casi un giga de más, que era
+     * justo lo que no entraba en su teléfono.
+     */
+    internal fun buscarEnRepositorio(repositorio: String, cuantizacion: String? = null): String? {
         val json = try {
             val conexion = URL("https://huggingface.co/api/models/$repositorio")
                 .openConnection() as HttpURLConnection
@@ -141,11 +149,15 @@ class Descargador(private val destino: File) {
             // Los modelos partidos en varios archivos no los sabemos juntar.
             .filterNot { it.contains("-of-") }
 
-        val elegido = nombres.firstOrNull { it.contains("Q4_K_M", ignoreCase = true) }
-            ?: nombres.firstOrNull { it.contains("Q4", ignoreCase = true) }
-            ?: nombres.firstOrNull { it.contains("Q5", ignoreCase = true) }
-            ?: nombres.firstOrNull()
-            ?: return null
+        val elegido = if (cuantizacion != null) {
+            nombres.firstOrNull { tieneCuantizacion(it, cuantizacion) } ?: return null
+        } else {
+            nombres.firstOrNull { it.contains("Q4_K_M", ignoreCase = true) }
+                ?: nombres.firstOrNull { it.contains("Q4", ignoreCase = true) }
+                ?: nombres.firstOrNull { it.contains("Q5", ignoreCase = true) }
+                ?: nombres.firstOrNull()
+                ?: return null
+        }
         return urlDeArchivo(repositorio, elegido)
     }
 
@@ -188,6 +200,17 @@ class Descargador(private val destino: File) {
                 if (sonda.existe(directa)) return directa to intentos
                 intentos.add("${origen.repositorio}/${origen.archivo}: no está")
             }
+            // Segunda vuelta: el archivo cambió de nombre, pero el repositorio
+            // sigue teniendo la compresión que la ficha promete.
+            val buscada = cuantizacionDe(modelo.archivo)
+            if (buscada != null) {
+                for (origen in modelo.origenes) {
+                    val encontrado = sonda.buscarEnRepositorio(origen.repositorio, buscada)
+                    if (encontrado != null) return encontrado to intentos
+                    intentos.add("${origen.repositorio}: no tiene $buscada")
+                }
+            }
+            // Última: cualquier cosa utilizable, antes que dejarlo sin modelo.
             for (origen in modelo.origenes) {
                 val encontrado = sonda.buscarEnRepositorio(origen.repositorio)
                 if (encontrado != null) return encontrado to intentos
@@ -195,6 +218,21 @@ class Descargador(private val destino: File) {
             }
             return null to intentos
         }
+
+        /**
+         * La compresión que nombra un archivo: «Q4_K_M», «Q8_0», «IQ4_XS».
+         *
+         * Es lo que separa un modelo de 3 GB de uno de 4,7: el mismo modelo,
+         * el mismo nombre, y un giga y medio de diferencia.
+         */
+        fun cuantizacionDe(archivo: String): String? =
+            CUANTIZACION.findAll(archivo.substringBeforeLast('.')).lastOrNull()?.value
+
+        /** ¿Este archivo está guardado con esa compresión y no con otra? */
+        fun tieneCuantizacion(archivo: String, cuantizacion: String): Boolean =
+            cuantizacionDe(archivo)?.equals(cuantizacion, ignoreCase = true) == true
+
+        private val CUANTIZACION = Regex("(?i)(?<![a-z0-9])i?q\\d+(?:_[a-z0-9]+)*")
 
         /** Los GGUF empiezan con estas cuatro letras. Barato de verificar. */
         fun esGguf(archivo: File): Boolean = try {

@@ -655,6 +655,51 @@ class MotorTest {
             coders.all { it.ramGb <= ModeloDisponible.TOPE_RAM })
         assertNotNull(Catalogo.porId("qwen25-coder-3b"))
         assertNotNull(Catalogo.porId("qwen25-coder-3b-q8"))
+        assertNotNull(Catalogo.porId("qwen25-coder-7b"))
+    }
+
+    @Test
+    fun cadaRepositorioLlamaAlArchivoComoLoLlamaEl() {
+        // El repositorio oficial escribe todo en minúscula y los otros dos
+        // respetan las mayúsculas. Un solo nombre para los tres dejaba los
+        // respaldos muertos.
+        val origenes = Catalogo.CODER_7B.origenes
+        assertEquals(3, origenes.size)
+        assertEquals("qwen2.5-coder-7b-instruct-q3_k_m.gguf", origenes[0].archivo)
+        assertEquals("Qwen2.5-Coder-7B-Instruct-Q3_K_M.gguf", origenes[1].archivo)
+        // Y todos apuntan a la misma compresión, que es lo que define el peso.
+        assertEquals(1, origenes.map { Descargador.cuantizacionDe(it.archivo)!!.uppercase() }.toSet().size)
+    }
+
+    @Test
+    fun cadaModeloDeclaraSuCompresion() {
+        // Sin esto, un archivo renombrado hace que la app baje cualquier cosa.
+        for (modelo in Catalogo.MODELOS) {
+            assertNotNull("«${modelo.nombre}» no dice con qué compresión viene",
+                Descargador.cuantizacionDe(modelo.archivo))
+        }
+    }
+
+    @Test
+    fun laCompresionSeLeeDelNombreDelArchivo() {
+        assertEquals("Q4_K_M", Descargador.cuantizacionDe("Llama-3.2-3B-Instruct-Q4_K_M.gguf"))
+        assertEquals("q8_0", Descargador.cuantizacionDe("qwen2.5-coder-3b-instruct-q8_0.gguf"))
+        assertEquals("Q6_K", Descargador.cuantizacionDe("google_gemma-3-4b-it-Q6_K.gguf"))
+        assertEquals("IQ4_XS", Descargador.cuantizacionDe("Modelo-IQ4_XS.gguf"))
+        assertEquals("q4", Descargador.cuantizacionDe("phi-4-mini-instruct-q4.gguf"))
+        // Ni el «2.5» del nombre ni el «3b» del tamaño son una compresión.
+        assertNull(Descargador.cuantizacionDe("qwen2.5-coder-3b-instruct.gguf"))
+    }
+
+    @Test
+    fun noConfundeUnaCompresionConOtra() {
+        // Bajar Q4_K_M cuando la ficha prometía Q3_K_M son casi mil megas de
+        // más: justo lo que no entraba en el teléfono.
+        assertTrue(Descargador.tieneCuantizacion("Modelo-Q3_K_M.gguf", "q3_k_m"))
+        assertFalse(Descargador.tieneCuantizacion("Modelo-Q4_K_M.gguf", "Q3_K_M"))
+        assertFalse(Descargador.tieneCuantizacion("Modelo-Q4_K_M.gguf", "Q4"))
+        assertFalse(Descargador.tieneCuantizacion("Modelo-Q4_K_S.gguf", "Q4_K_M"))
+        assertTrue(Descargador.tieneCuantizacion("Modelo-q4.gguf", "Q4"))
     }
 
     @Test

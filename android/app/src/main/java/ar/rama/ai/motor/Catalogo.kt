@@ -223,14 +223,22 @@ object Catalogo {
     )
 
     /**
-     * Los repositorios de Qwen2.5-Coder, que es la familia de programación
-     * chica que mejor anda hoy.
+     * Los repositorios de Qwen2.5-Coder, la familia de programación chica que
+     * mejor anda hoy.
+     *
+     * Cada uno nombra sus archivos a su manera: el repositorio oficial los
+     * escribe todo en minúscula y los otros dos respetan las mayúsculas del
+     * modelo. Poner el mismo nombre en los tres dejaba los dos respaldos
+     * muertos, que es justo cuando hacen falta.
      */
-    private fun coder(tamanio: String, archivo: String) = listOf(
-        Origen("Qwen/Qwen2.5-Coder-$tamanio-Instruct-GGUF", archivo),
-        Origen("bartowski/Qwen2.5-Coder-$tamanio-Instruct-GGUF", archivo),
-        Origen("unsloth/Qwen2.5-Coder-$tamanio-Instruct-GGUF", archivo),
-    )
+    private fun coder(tamanio: String, cuantizacion: String): List<Origen> {
+        val base = "Qwen2.5-Coder-$tamanio-Instruct"
+        return listOf(
+            Origen("Qwen/$base-GGUF", "$base-$cuantizacion.gguf".lowercase()),
+            Origen("bartowski/$base-GGUF", "$base-$cuantizacion.gguf"),
+            Origen("unsloth/$base-GGUF", "$base-$cuantizacion.gguf"),
+        )
+    }
 
     val CODER_3B = ModeloDisponible(
         id = "qwen25-coder-3b",
@@ -244,7 +252,7 @@ object Catalogo {
             "un fragmento y traduce entre lenguajes mucho mejor que un modelo " +
             "general del mismo tamaño. Para charlar es peor que los otros: usalo " +
             "con el modo Código.",
-        origenes = coder("3B", "qwen2.5-coder-3b-instruct-q4_k_m.gguf"),
+        origenes = coder("3B", "Q4_K_M"),
     )
 
     // --------------------------------------------------------------------
@@ -267,7 +275,22 @@ object Catalogo {
             "(Q8). En código la compresión se paga caro —un nombre de función mal " +
             "elegido no compila—, así que de toda la lista éste es el que más se " +
             "nota sin apretar. Si programás, es este.",
-        origenes = coder("3B", "qwen2.5-coder-3b-instruct-q8_0.gguf"),
+        origenes = coder("3B", "Q8_0"),
+    )
+
+    val CODER_7B = ModeloDisponible(
+        id = "qwen25-coder-7b",
+        nombre = "Qwen2.5-Coder 7B",
+        familia = "Coder",
+        bytesAproximados = 3640L * 1024 * 1024,
+        precision = 4,
+        velocidad = 1,
+        descripcion = "El mejor programador que entra en un teléfono. Tiene más del " +
+            "doble de parámetros que el de 3B y se nota sobre todo en lo que sabe de " +
+            "bibliotecas y APIs, que es donde un modelo chico inventa funciones que " +
+            "no existen. Va comprimido fuerte para entrar en 8 GB, así que es el más " +
+            "lento de la lista: pensalo como una consulta, no como un chat.",
+        origenes = coder("7B", "Q3_K_M"),
     )
 
     val QWEN_4B_PRECISO = ModeloDisponible(
@@ -335,7 +358,7 @@ object Catalogo {
     val MODELOS: List<ModeloDisponible> = listOf(
         QWEN_06_R, QWEN_06_PRECISO, GEMMA_1B, LLAMA_1B, QWEN_17, CODER_3B, LLAMA_3B,
         PHI_MINI, QWEN_4B, GEMMA_4B, PHI_MINI_PRECISO, CODER_3B_PRECISO, QWEN_4B_PRECISO,
-        LLAMA_3B_PRECISO, GEMMA_4B_PRECISO,
+        LLAMA_3B_PRECISO, GEMMA_4B_PRECISO, CODER_7B,
     )
 
     /** Los gigabytes de RAM que pide, como número. */

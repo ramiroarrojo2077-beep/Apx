@@ -591,6 +591,72 @@ class MotorTest {
         assertTrue(r.marcas.isEmpty())
     }
 
+    // ---- Bloques de código: lo que escribe un modelo de programación ----
+
+    private fun bloquesDe(markdown: String): List<String> {
+        val r = Formato.analizar(markdown)
+        return r.marcas.filter { it.enfasis == Enfasis.BLOQUE }
+            .map { r.texto.substring(it.desde, it.hasta) }
+    }
+
+    @Test
+    fun elBloqueDeCodigoSaleEnteroYSinLasComillas() {
+        val r = Formato.analizar("Mirá:\n```kotlin\nfun hola() = 1\n```\nListo.")
+        assertEquals(listOf("fun hola() = 1"), bloquesDe("Mirá:\n```kotlin\nfun hola() = 1\n```\nListo."))
+        assertFalse("quedaron las comillas a la vista", r.texto.contains("```"))
+        assertFalse("quedó el nombre del lenguaje suelto", r.texto.contains("kotlin\n"))
+        assertTrue(r.texto.startsWith("Mirá:"))
+        assertTrue(r.texto.endsWith("Listo."))
+    }
+
+    @Test
+    fun adentroDelBloqueNoSeInterpretaNada() {
+        // Cada uno de estos símbolos significa otra cosa en código, y antes el
+        // formateador se los comía: el asterisco era cursiva, el guion una
+        // viñeta y la almohadilla un título.
+        val codigo = "# comentario\n- 1\nx = a * b * c\nnombre_con_guion_bajo = 2"
+        val bloques = bloquesDe("```python\n$codigo\n```")
+        assertEquals(listOf(codigo), bloques)
+    }
+
+    @Test
+    fun elBloqueSinCerrarIgualSeMuestraComoCodigo() {
+        // Al modelo se le acaban los tokens en mitad del código más seguido de
+        // lo que uno quisiera.
+        assertEquals(listOf("fun a() {\n    val x = 1"), bloquesDe("Va:\n```kotlin\nfun a() {\n    val x = 1"))
+    }
+
+    @Test
+    fun variosBloquesEnUnaRespuesta() {
+        val bloques = bloquesDe("Antes:\n```\nuno\n```\nEn el medio.\n```\ndos\n```\nDespués.")
+        assertEquals(listOf("uno", "dos"), bloques)
+    }
+
+    @Test
+    fun elCodigoEnLineaSigueAndando() {
+        val r = Formato.analizar("Usá `List<String>` acá.")
+        assertEquals("Usá List<String> acá.", r.texto)
+        assertEquals(listOf(Enfasis.CODIGO), r.marcas.map { it.enfasis })
+    }
+
+    @Test
+    fun unTextoSinBloquesNoCambia() {
+        assertTrue(bloquesDe("Hola, **qué** tal.").isEmpty())
+        assertEquals("Hola, qué tal.", Formato.analizar("Hola, **qué** tal.").texto)
+    }
+
+    // ---- Catálogo ----
+
+    @Test
+    fun hayUnModeloDeProgramacion() {
+        val coders = Catalogo.MODELOS.filter { it.familia == "Coder" }
+        assertTrue("falta un modelo de programación", coders.isNotEmpty())
+        assertTrue("el de programación tiene que entrar en el techo",
+            coders.all { it.ramGb <= ModeloDisponible.TOPE_RAM })
+        assertNotNull(Catalogo.porId("qwen25-coder-3b"))
+        assertNotNull(Catalogo.porId("qwen25-coder-3b-q8"))
+    }
+
     @Test
     fun hayModelosDeAltaGama() {
         val potentes = Catalogo.MODELOS.filter { it.precision == 4 }
@@ -853,16 +919,31 @@ class MotorTest {
     }
 
     @Test
-    fun elContextoSeAchicaConLosModelosGrandes() {
-        val chico = File.createTempFile("chico", ".gguf").apply { deleteOnExit() }
-        assertEquals(Generador.CONTEXTO, Generador.contextoRecomendado(chico))
-        // No hace falta escribir un giga: basta con declarar el largo.
-        val grande = File.createTempFile("grande", ".gguf").apply {
-            java.io.RandomAccessFile(this, "rw").use { it.setLength(1200L * 1024 * 1024) }
+    fun todoElCatalogoAbreConElContextoEntero() {
+        // Si alguno se abriera con la ventana chica, el modo Código no tendría
+        // dónde escribir sus mil tokens sin cortar la función al medio.
+        val masPesado = Catalogo.MODELOS.maxOf { it.bytesAproximados }
+        val archivo = File.createTempFile("modelo", ".gguf").apply {
+            // No hace falta escribir los gigas: basta con declarar el largo.
+            java.io.RandomAccessFile(this, "rw").use { it.setLength(masPesado) }
             deleteOnExit()
         }
-        assertTrue(Generador.contextoRecomendado(grande) < Generador.CONTEXTO)
-        grande.delete()
+        assertEquals(Generador.CONTEXTO, Generador.contextoRecomendado(archivo))
+        assertTrue("el contexto tiene que darle aire al modo Código",
+            Generador.CONTEXTO >= Modos.CODIGO.maxTokens * 2)
+        archivo.delete()
+    }
+
+    @Test
+    fun unImportadoEnormeSeAbreConMenosContexto() {
+        // Un archivo elegido a mano puede ser cualquier cosa, mucho más grande
+        // que todo lo que ofrece la lista.
+        val enorme = File.createTempFile("enorme", ".gguf").apply {
+            java.io.RandomAccessFile(this, "rw").use { it.setLength(5L * 1024 * 1024 * 1024) }
+            deleteOnExit()
+        }
+        assertTrue(Generador.contextoRecomendado(enorme) < Generador.CONTEXTO)
+        enorme.delete()
     }
 
     @Test
@@ -881,13 +962,35 @@ class MotorTest {
 
     @Test
     fun losModosSonDistintosEntreSi() {
-        assertEquals(5, Modos.TODOS.size)
+        assertEquals(6, Modos.TODOS.size)
         assertEquals(Modos.TODOS.size, Modos.TODOS.map { it.id }.toSet().size)
         val temperaturas = Modos.TODOS.map { it.temperatura }
         assertTrue("las temperaturas no varían", temperaturas.toSet().size > 1)
         assertTrue(Modos.CREATIVO.temperatura > Modos.PRECISO.temperatura)
         assertTrue(Modos.AL_HUESO.maxTokens < Modos.EXPLICAR.maxTokens)
         assertTrue(Modos.TODOS.all { it.temperatura in 0.1f..1.2f && it.maxTokens >= 100 })
+    }
+
+    @Test
+    fun elModoCodigoEstaHechoParaProgramar() {
+        // Una función entera no entra en la ración de los otros modos, y una
+        // respuesta cortada en mitad de un bloque no le sirve a nadie.
+        assertTrue("le falta aire para una función entera",
+            Modos.CODIGO.maxTokens >= Modos.EXPLICAR.maxTokens)
+        // En código una palabra distinta no es un matiz: no compila.
+        assertTrue(Modos.CODIGO.temperatura <= Modos.PRECISO.temperatura + 0.1f)
+        // Los resultados de una búsqueda meterían texto de páginas web en el
+        // medio de un pedido de código.
+        assertFalse(Modos.CODIGO.buscaEnWeb)
+        assertTrue("tiene que pedir el bloque con ```",
+            Modos.CODIGO.instruccion.contains("```"))
+    }
+
+    @Test
+    fun elSistemaNoObligaATraducirElCodigo() {
+        // La regla 1 manda responder siempre en español. Sin la excepción, un
+        // modelo obediente traduce los nombres de las funciones.
+        assertTrue(Modos.BASE.contains("sin traducir"))
     }
 
     @Test

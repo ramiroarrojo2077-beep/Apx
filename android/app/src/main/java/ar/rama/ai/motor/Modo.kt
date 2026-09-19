@@ -38,7 +38,9 @@ object Modos {
         Sos Rama, una IA que corre dentro del teléfono del usuario.
 
         1. Respondé SIEMPRE en español rioplatense, sea cual sea el idioma de
-           la pregunta. Nunca en inglés ni en chino, ni mezclado.
+           la pregunta. Nunca en inglés ni en chino, ni mezclado. Eso vale para
+           lo que explicás: el código, los nombres propios y las citas van como
+           corresponde, sin traducir.
         2. Escribí sólo la respuesta final, sin razonar en voz alta.
         3. Un DATO VERIFICADO es correcto: usalo tal cual.
         4. Con RESULTADOS DE BÚSQUEDA, respondé con eso y citá la fuente.
@@ -113,7 +115,32 @@ object Modos {
         buscaEnWeb = true,
     )
 
-    val TODOS = listOf(CHARLA, PRECISO, EXPLICAR, CREATIVO, AL_HUESO)
+    val CODIGO = Modo(
+        id = "codigo",
+        nombre = "Código",
+        descripcion = "Para programar. Escribe el código entero y explica poco.",
+        instruccion = "Escribí código. Poné cada fragmento dentro de un bloque " +
+            "``` con el nombre del lenguaje en la primera línea, y el código " +
+            "completo adentro: nada de «...» ni de «acá va el resto». Los " +
+            "nombres de variables, las palabras clave y los mensajes del " +
+            "programa van en el idioma que corresponda al lenguaje, sin " +
+            "traducir. Antes del bloque, una o dos frases en español diciendo " +
+            "qué hace; después, sólo lo que no se entienda leyéndolo. Si falta " +
+            "un dato para decidir, elegí lo más común y decí qué elegiste.",
+        // Temperatura baja: en código, una palabra distinta no es un matiz,
+        // es un error de compilación.
+        temperatura = 0.2f,
+        topP = 0.9f,
+        topK = 20,
+        // Una función entera no entra en 320 tokens, y una respuesta cortada
+        // al medio de un bloque no le sirve a nadie.
+        maxTokens = 1024,
+        // Los resultados de una búsqueda web son ruido acá: meten texto de
+        // páginas en el medio de un pedido de código.
+        buscaEnWeb = false,
+    )
+
+    val TODOS = listOf(CHARLA, PRECISO, CODIGO, EXPLICAR, CREATIVO, AL_HUESO)
 
     val PREDETERMINADO = CHARLA
 

@@ -22,8 +22,8 @@ android {
         applicationId = "ar.rama.ai"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "3.2.0"
+        versionCode = 6
+        versionName = "3.3.0"
 
         // Sólo 64 bits: es lo que tiene cualquier teléfono desde 2017, y cada
         // arquitectura extra duplica el tiempo de compilar llama.cpp.

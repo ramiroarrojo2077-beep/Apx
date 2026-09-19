@@ -222,6 +222,31 @@ object Catalogo {
         ),
     )
 
+    /**
+     * Los repositorios de Qwen2.5-Coder, que es la familia de programación
+     * chica que mejor anda hoy.
+     */
+    private fun coder(tamanio: String, archivo: String) = listOf(
+        Origen("Qwen/Qwen2.5-Coder-$tamanio-Instruct-GGUF", archivo),
+        Origen("bartowski/Qwen2.5-Coder-$tamanio-Instruct-GGUF", archivo),
+        Origen("unsloth/Qwen2.5-Coder-$tamanio-Instruct-GGUF", archivo),
+    )
+
+    val CODER_3B = ModeloDisponible(
+        id = "qwen25-coder-3b",
+        nombre = "Qwen2.5-Coder 3B",
+        familia = "Coder",
+        bytesAproximados = 1790L * 1024 * 1024,
+        precision = 3,
+        velocidad = 2,
+        descripcion = "El especialista en programación. Entrenado casi todo con código, " +
+            "así que escribe funciones enteras que compilan, encuentra el error de " +
+            "un fragmento y traduce entre lenguajes mucho mejor que un modelo " +
+            "general del mismo tamaño. Para charlar es peor que los otros: usalo " +
+            "con el modo Código.",
+        origenes = coder("3B", "qwen2.5-coder-3b-instruct-q4_k_m.gguf"),
+    )
+
     // --------------------------------------------------------------------
     // La franja de arriba: 8 GB de RAM.
     //
@@ -230,6 +255,20 @@ object Catalogo {
     // conserva casi todo lo que sabía antes de comprimirse, mientras que un 8B
     // apretado hasta este tamaño pierde justo lo que lo hacía valer la pena.
     // --------------------------------------------------------------------
+
+    val CODER_3B_PRECISO = ModeloDisponible(
+        id = "qwen25-coder-3b-q8",
+        nombre = "Qwen2.5-Coder 3B · alta fidelidad",
+        familia = "Coder",
+        bytesAproximados = 3130L * 1024 * 1024,
+        precision = 4,
+        velocidad = 2,
+        descripcion = "El mismo especialista en programación, prácticamente intacto " +
+            "(Q8). En código la compresión se paga caro —un nombre de función mal " +
+            "elegido no compila—, así que de toda la lista éste es el que más se " +
+            "nota sin apretar. Si programás, es este.",
+        origenes = coder("3B", "qwen2.5-coder-3b-instruct-q8_0.gguf"),
+    )
 
     val QWEN_4B_PRECISO = ModeloDisponible(
         id = "qwen3-4b-q6",
@@ -294,8 +333,9 @@ object Catalogo {
 
     /** Del más liviano al más capaz: el orden en que conviene decidir. */
     val MODELOS: List<ModeloDisponible> = listOf(
-        QWEN_06_R, QWEN_06_PRECISO, GEMMA_1B, LLAMA_1B, QWEN_17, LLAMA_3B, PHI_MINI,
-        QWEN_4B, GEMMA_4B, PHI_MINI_PRECISO, QWEN_4B_PRECISO, LLAMA_3B_PRECISO, GEMMA_4B_PRECISO,
+        QWEN_06_R, QWEN_06_PRECISO, GEMMA_1B, LLAMA_1B, QWEN_17, CODER_3B, LLAMA_3B,
+        PHI_MINI, QWEN_4B, GEMMA_4B, PHI_MINI_PRECISO, CODER_3B_PRECISO, QWEN_4B_PRECISO,
+        LLAMA_3B_PRECISO, GEMMA_4B_PRECISO,
     )
 
     /** Los gigabytes de RAM que pide, como número. */

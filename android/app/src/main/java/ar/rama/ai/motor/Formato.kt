@@ -1,7 +1,15 @@
 package ar.rama.ai.motor
 
 /** Qué clase de énfasis lleva un tramo de texto. */
-enum class Enfasis { NEGRITA, CURSIVA, CODIGO, TITULO }
+enum class Enfasis {
+    NEGRITA,
+    CURSIVA,
+    /** Código dentro de una frase, entre acentos graves. */
+    CODIGO,
+    TITULO,
+    /** Un bloque entero de código, el que va entre ``` y ```. */
+    BLOQUE,
+}
 
 /** Un tramo con formato, en posiciones del texto ya limpio. */
 data class Marca(val enfasis: Enfasis, val desde: Int, val hasta: Int)
@@ -20,13 +28,38 @@ object Formato {
 
     private val ENCABEZADO = Regex("^\\s{0,3}#{1,6}\\s+")
     private val VINETA = Regex("^(\\s*)[-*+]\\s+")
+    private val CERCA = Regex("^\\s{0,3}(```|~~~)")
 
     fun analizar(markdown: String): TextoFormateado {
         val salida = StringBuilder()
         val marcas = mutableListOf<Marca>()
         val lineas = markdown.split("\n")
 
+        // Dentro de un bloque de código no se interpreta nada: ahí un asterisco
+        // es una multiplicación, un guion al principio es un menos y una
+        // almohadilla es un comentario. Tratarlos como markdown rompía el
+        // código justo cuando más importa que salga tal cual se escribió.
+        var enBloque = false
+        var desdeBloque = 0
+
         for ((i, cruda) in lineas.withIndex()) {
+            if (CERCA.containsMatchIn(cruda)) {
+                if (enBloque) {
+                    marcas.add(Marca(Enfasis.BLOQUE, desdeBloque, recortarFinal(salida, desdeBloque)))
+                    enBloque = false
+                } else {
+                    enBloque = true
+                    desdeBloque = salida.length
+                }
+                // La línea de las comillas no se muestra, y tampoco su salto:
+                // si no, cada bloque deja un renglón vacío arriba y abajo.
+                continue
+            }
+            if (enBloque) {
+                salida.append(cruda)
+                if (i < lineas.size - 1) salida.append('\n')
+                continue
+            }
             var linea = cruda
             val encabezado = ENCABEZADO.find(linea)
             val esTitulo = encabezado != null
@@ -43,7 +76,18 @@ object Formato {
             }
             if (i < lineas.size - 1) salida.append('\n')
         }
+        // Un modelo se queda sin tokens en mitad del código más seguido de lo
+        // que uno quisiera. Lo que quedó abierto se muestra igual como bloque:
+        // es código a medias, pero se lee como código.
+        if (enBloque) marcas.add(Marca(Enfasis.BLOQUE, desdeBloque, recortarFinal(salida, desdeBloque)))
         return TextoFormateado(salida.toString(), marcas)
+    }
+
+    /** El final del bloque, sin el salto de línea que lo cierra. */
+    private fun recortarFinal(salida: StringBuilder, desde: Int): Int {
+        var fin = salida.length
+        while (fin > desde && salida[fin - 1] == '\n') fin--
+        return fin
     }
 
     private fun enLinea(linea: String, salida: StringBuilder, marcas: MutableList<Marca>) {

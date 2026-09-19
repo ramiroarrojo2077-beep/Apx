@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
@@ -477,6 +478,54 @@ class PuntosPensando(contexto: Context) : View(contexto) {
     }
 }
 
+/**
+ * El panel que va detrás de un bloque de código.
+ *
+ * Android no trae nada para esto: los spans de fondo pintan un rectángulo
+ * pelado detrás de cada letra, sin margen ni esquinas, que al lado de un
+ * bloque de código de verdad se ve mal. Éste dibuja el panel renglón por
+ * renglón y redondea sólo arriba del primero y abajo del último, así las
+ * líneas del medio se pegan y el conjunto se lee como una sola pieza.
+ */
+class FondoDeCodigo(
+    private val desde: Int,
+    private val hasta: Int,
+    private val color: Int,
+    private val radio: Float,
+    private val aire: Float,
+) : android.text.style.LineBackgroundSpan {
+
+    private val pincel = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = this@FondoDeCodigo.color }
+    private val forma = Path()
+    private val caja = RectF()
+    private val radios = FloatArray(8)
+
+    override fun drawBackground(
+        lienzo: Canvas, pintor: Paint,
+        izquierda: Int, derecha: Int,
+        arriba: Int, linea: Int, abajo: Int,
+        texto: CharSequence, inicio: Int, fin: Int, numero: Int,
+    ) {
+        if (fin <= desde || inicio >= hasta) return
+        val primera = inicio <= desde
+        val ultima = fin >= hasta
+
+        caja.set(
+            izquierda.toFloat(),
+            arriba.toFloat() - if (primera) aire else 0f,
+            derecha.toFloat(),
+            abajo.toFloat() + if (ultima) aire else 0f,
+        )
+        java.util.Arrays.fill(radios, 0f)
+        if (primera) { radios[0] = radio; radios[1] = radio; radios[2] = radio; radios[3] = radio }
+        if (ultima) { radios[4] = radio; radios[5] = radio; radios[6] = radio; radios[7] = radio }
+
+        forma.reset()
+        forma.addRoundRect(caja, radios, Path.Direction.CW)
+        lienzo.drawPath(forma, pincel)
+    }
+}
+
 // ------------------------------------------------------------- markdown
 
 /**
@@ -485,7 +534,12 @@ class PuntosPensando(contexto: Context) : View(contexto) {
  * Sin esto el chat muestra los asteriscos y las almohadillas tal cual, que es
  * exactamente lo que uno no quiere leer.
  */
-fun conFormato(markdown: String): CharSequence {
+fun conFormato(
+    markdown: String,
+    sangria: Int = 0,
+    radioBloque: Float = 0f,
+    aireBloque: Float = 0f,
+): CharSequence {
     val analizado = ar.rama.ai.motor.Formato.analizar(markdown)
     if (analizado.marcas.isEmpty()) return analizado.texto
 
@@ -497,7 +551,7 @@ fun conFormato(markdown: String): CharSequence {
                 android.text.style.StyleSpan(Typeface.BOLD)
             ar.rama.ai.motor.Enfasis.CURSIVA ->
                 android.text.style.StyleSpan(Typeface.ITALIC)
-            ar.rama.ai.motor.Enfasis.CODIGO ->
+            ar.rama.ai.motor.Enfasis.CODIGO, ar.rama.ai.motor.Enfasis.BLOQUE ->
                 android.text.style.TypefaceSpan("monospace")
             ar.rama.ai.motor.Enfasis.TITULO ->
                 android.text.style.StyleSpan(Typeface.BOLD)
@@ -516,6 +570,22 @@ fun conFormato(markdown: String): CharSequence {
         if (marca.enfasis == ar.rama.ai.motor.Enfasis.TITULO) {
             texto.setSpan(
                 android.text.style.RelativeSizeSpan(1.1f),
+                marca.desde, marca.hasta, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+        if (marca.enfasis == ar.rama.ai.motor.Enfasis.BLOQUE) {
+            // Un poco más chico para que entren más columnas antes de cortar,
+            // y sangrado para que el texto no toque el borde del panel.
+            texto.setSpan(
+                android.text.style.RelativeSizeSpan(0.88f),
+                marca.desde, marca.hasta, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            texto.setSpan(
+                android.text.style.LeadingMarginSpan.Standard(sangria),
+                marca.desde, marca.hasta, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            texto.setSpan(
+                FondoDeCodigo(marca.desde, marca.hasta, Paleta.SUPERFICIE, radioBloque, aireBloque),
                 marca.desde, marca.hasta, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
             )
         }

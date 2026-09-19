@@ -759,7 +759,7 @@ class MainActivity : Activity() {
                 generando = false
                 pintarBotonEnviar()
                 val texto = respuesta.texto
-                burbuja.text = conFormato(texto)
+                burbuja.text = conCodigo(texto)
                 historial.add(Mensaje("assistant", texto))
                 bloque?.cerrar(respuesta.pasos.size)
                 selloRespaldo(respuesta.respaldo)
@@ -1175,7 +1175,7 @@ class MainActivity : Activity() {
         bloque.addView(rotuloDeRama())
 
         val cuerpo = TextView(this).estilo(Tipo.CUERPO, Paleta.TEXTO, interlineado = 1.5f).apply {
-            text = conFormato(texto)
+            text = conCodigo(texto)
             setPadding(0, dp(Espacio.S - 2f), 0, 0)
             setOnLongClickListener { copiar(this.text.toString()); true }
         }
@@ -1184,6 +1184,14 @@ class MainActivity : Activity() {
         alFinal()
         return cuerpo
     }
+
+    /** El markdown de la respuesta, con las medidas del bloque de código. */
+    private fun conCodigo(texto: String): CharSequence = conFormato(
+        texto,
+        sangria = dp(Espacio.M),
+        radioBloque = dp(Radio.CHICO).toFloat(),
+        aireBloque = dp(Espacio.S).toFloat(),
+    )
 
     /** Un punto verde y el nombre: quién está hablando, sin ocupar lugar. */
     private fun rotuloDeRama(): View {

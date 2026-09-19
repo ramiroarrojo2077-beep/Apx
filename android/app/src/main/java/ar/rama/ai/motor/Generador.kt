@@ -91,11 +91,23 @@ class Generador private constructor(
         }
 
         /**
-         * Un modelo grande ya se come la memoria con sus pesos; la caché de
-         * atención se lleva el resto. Con los chicos podemos ser generosos.
+         * La ventana de contexto con la que se abre un modelo.
+         *
+         * Antes los modelos de más de 800 MB se abrían con la mitad, porque la
+         * caché de atención en 16 bits se comía cientos de megas. Ya no: la
+         * caché pasó a 8 bits y el catálogo tiene techo, así que hasta el más
+         * pesado se lleva unos 300 MB de caché a contexto completo. Eso entra
+         * de sobra en el margen que la lista ya le reserva a cada modelo.
+         *
+         * Con el contexto entero, un pedido de código puede traer el archivo
+         * pegado, el historial y todavía dejarle al modelo los mil tokens que
+         * necesita para escribir una función sin cortarla al medio.
+         *
+         * Sólo se achica para un archivo importado a mano, que puede ser
+         * cualquier cosa y bastante más grande que lo que ofrece la lista.
          */
         fun contextoRecomendado(archivo: File): Int =
-            if (archivo.length() > 800L * 1024 * 1024) 2048 else CONTEXTO
+            if (archivo.length() > 4L * 1024 * 1024 * 1024) 2048 else CONTEXTO
 
         /**
          * Sólo los núcleos rápidos del teléfono: sumar los lentos hace que los
